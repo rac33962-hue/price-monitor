@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>가격 모니터링 대시보드</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #f8f9fa;
+    --surface: #ffffff;
+    --border: #e9ecef;
+    --text: #212529;
+    --text-muted: #6c757d;
+    --primary: #1a73e8;
+    --danger: #d93025;
+    --danger-bg: #fce8e6;
+    --success: #1e8e3e;
+    --success-bg: #e6f4ea;
+    --warning: #f29900;
+    --warning-bg: #fef7e0;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* 로그인 */
+  #login-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: var(--bg);
+  }
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 48px 40px;
+    width: 360px;
+    text-align: center;
+  }
+  .login-logo {
+    width: 48px;
+    height: 48px;
+    background: var(--primary);
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .login-logo svg { width: 24px; height: 24px; fill: white; }
+  .login-card h1 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+  .login-card p { font-size: 14px; color: var(--text-muted); margin-bottom: 28px; }
+  .login-card input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    margin-bottom: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .login-card input:focus { border-color: var(--primary); }
+  .login-card button {
+    width: 100%;
+    padding: 10px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .login-card button:hover { opacity: 0.9; }
+  .login-error { color: var(--danger); font-size: 13px; margin-top: 10px; display: none; }
+
+  /* 앱 */
+  #app { display: none; }
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-logo {
+    width: 32px; height: 32px;
+    background: var(--primary);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .header-logo svg { width: 16px; height: 16px; fill: white; }
+  header h1 { font-size: 16px; font-weight: 600; }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .last-updated { font-size: 13px; color: var(--text-muted); }
+  .btn-refresh {
+    padding: 7px 14px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    transition: opacity 0.15s;
+  }
+  .btn-refresh:hover { opacity: 0.9; }
+  .btn-logout {
+    padding: 7px 14px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-logout:hover { background: var(--bg); }
+
+  /* 탭 */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 32px;
+  }
+  .tab {
+    padding: 14px 20px;
+    font-size: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  /* 콘텐츠 */
+  .content { padding: 28px 32px; max-width: 1200px; margin: 0 auto; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* 요약 카드 */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .summary-card .label { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+  .summary-card .value { font-size: 28px; font-weight: 600; }
+  .summary-card.danger .value { color: var(--danger); }
+  .summary-card.success .value { color: var(--success); }
+
+  /* 섹션 */
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; overflow: hidden; }
+  .section-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .section-header h2 { font-size: 15px; font-weight: 600; }
+  .section-header .count { font-size: 13px; color: var(--text-muted); }
+
+  /* 테이블 */
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    padding: 11px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+    background: #fafafa;
+  }
+  td { padding: 13px 16px; font-size: 14px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+
+  /* 배지 */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .badge-danger { background: var(--danger-bg); color: var(--danger); }
+  .badge-success { background: var(--success-bg); color: var(--success); }
+  .badge-warning { background: var(--warning-bg); color: var(--warning); }
+
+  /* 가격 */
+  .price { font-weight: 500; }
+  .price-down { color: var(--danger); }
+  .price-same { color: var(--text-muted); }
+
+  /* 연락 버튼 */
+  .contact-btns { display: flex; gap: 6px; }
+  .contact-btn {
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .contact-btn:hover { background: var(--bg); color: var(--text); }
+  .contact-btn.done { background: var(--success-bg); color: var(--success); border-color: var(--success-bg); }
+
+  /* 필터 */
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center;
+  }
+  .filter-bar select, .filter-bar input {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    background: var(--surface);
+    outline: none;
+    color: var(--text);
+  }
+  .filter-bar select:focus, .filter-bar input:focus { border-color: var(--primary); }
+
+  /* 빈 상태 */
+  .empty { text-align: center; padding: 48px 20px; color: var(--text-muted); font-size: 14px; }
+
+  /* 로딩 */
+  .loading { text-align: center; padding: 48px; color: var(--text-muted); font-size: 14px; }
+  .spinner {
+    display: inline-block;
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 연락 모달 */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 28px;
+    width: 440px;
+    max-width: 90vw;
+  }
+  .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .modal p { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+  .modal-product { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 20px; }
+  .contact-options { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .contact-option {
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    text-align: center;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .contact-option:hover { border-color: var(--primary); color: var(--primary); }
+  .contact-option.selected { border-color: var(--primary); background: #e8f0fe; color: var(--primary); }
+  .contact-option .icon { font-size: 20px; margin-bottom: 6px; }
+  .modal-note {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    resize: vertical;
+    min-height: 80px;
+    margin-bottom: 16px;
+    font-family: inherit;
+    outline: none;
+  }
+  .modal-note:focus { border-color: var(--primary); }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-cancel {
+    padding: 9px 18px;
+    border: 1px solid var(--border);
+    background: transparent;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .btn-save {
+    padding: 9px 18px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  /* 연락 이력 뱃지들 */
+  .contact-log { display: flex; flex-wrap: wrap; gap: 4px; }
+  .contact-log-item {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  a { color: var(--primary); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  @media (max-width: 768px) {
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .content { padding: 20px 16px; }
+    header { padding: 0 16px; }
+    .tabs { padding: 0 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+    </div>
+    <h1>가격 모니터링</h1>
+    <p>관리자 계정으로 로그인하세요</p>
+    <input type="text" id="login-id" placeholder="아이디" />
+    <input type="password" id="login-pw" placeholder="비밀번호" onkeydown="if(event.key==='Enter') doLogin()" />
+    <button onclick="doLogin()">로그인</button>
+    <div class="login-error" id="login-error">아이디 또는 비밀번호가 올바르지 않습니다</div>
+  </div>
+</div>
+
+<!-- 앱 -->
+<div id="app">
+  <header>
+    <div class="header-left">
+      <div class="header-logo">
+        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      </div>
+      <h1>가격 모니터링 대시보드</h1>
+    </div>
+    <div class="header-right">
+      <span class="last-updated" id="last-updated">-</span>
+      <button class="btn-refresh" onclick="loadData()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        새로고침
+      </button>
+      <button class="btn-logout" onclick="doLogout()">로그아웃</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('dashboard')">대시보드</div>
+    <div class="tab" onclick="switchTab('violations')">위반 현황</div>
+    <div class="tab" onclick="switchTab('history')">가격 변동 이력</div>
+    <div class="tab" onclick="switchTab('contact')">연락 이력</div>
+  </div>
+
+  <div class="content">
+
+    <!-- 대시보드 탭 -->
+    <div class="tab-content active" id="tab-dashboard">
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="label">전체 모니터링 상품</div>
+          <div class="value" id="stat-total">-</div>
+        </div>
+        <div class="summary-card danger">
+          <div class="label">현재 위반 상품</div>
+          <div class="value" id="stat-violations">-</div>
+        </div>
+        <div class="summary-card success">
+          <div class="label">정상 상품</div>
+          <div class="value" id="stat-normal">-</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">마지막 점검</div>
+          <div class="value" style="font-size:16px; padding-top:6px;" id="stat-last-check">-</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <h2>전체 상품 현황</h2>
+          <span class="count" id="dashboard-count"></span>
+        </div>
+        <div id="dashboard-table"><div class="loading"><span class="spinner"></span>데이터 불러오는 중...</div></div>
+      </div>
+    </div>
+
+    <!-- 위반 현황 탭 -->
+    <div class="tab-content" id="tab-violations">
+      <div class="section">
+        <div class="section-header">
+          <h2>위반 상품 목록</h2>
+          <span class="count" id="violations-count"></span>
+        </div>
+        <div id="violations-table"><div class="loading"><span class="spinner"></span>데이터 불러오는 중...</div></div>
+      </div>
+    </div>
+
+    <!-- 가격 변동 이력 탭 -->
+    <div class="tab-content" id="tab-history">
+      <div class="filter-bar">
+        <select id="history-status-filter" onchange="renderHistory()">
+          <option value="">전체 상태</option>
+          <option value="위반">위반만</option>
+          <option value="정상">정상만</option>
+        </select>
+        <input type="date" id="history-date-filter" onchange="renderHistory()" />
+        <button onclick="clearHistoryFilter()" style="padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:white; cursor:pointer; font-size:13px;">초기화</button>
+      </div>
+      <div class="section">
+        <div class="section-header">
+          <h2>가격 변동 이력</h2>
+          <span class="count" id="history-count"></span>
+        </div>
+        <div id="history-table"><div class="loading"><span class="spinner"></span>데이터 불러오는 중...</div></div>
+      </div>
+    </div>
+
+    <!-- 연락 이력 탭 -->
+    <div class="tab-content" id="tab-contact">
+      <div class="section">
+        <div class="section-header">
+          <h2>연락 이력</h2>
+          <span class="count" id="contact-count"></span>
+        </div>
+        <div id="contact-table"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 연락 모달 -->
+<div class="modal-overlay" id="contact-modal">
+  <div class="modal">
+    <h3>연락 기록 남기기</h3>
+    <p>연락 방법을 선택하고 메모를 남겨주세요</p>
+    <div class="modal-product" id="modal-product-name"></div>
+    <div class="contact-options">
+      <div class="contact-option" onclick="selectContact('톡톡')">
+        <div class="icon">💬</div>
+        네이버 톡톡
+      </div>
+      <div class="contact-option" onclick="selectContact('문자')">
+        <div class="icon">📱</div>
+        문자
+      </div>
+      <div class="contact-option" onclick="selectContact('전화')">
+        <div class="icon">📞</div>
+        전화
+      </div>
+    </div>
+    <textarea class="modal-note" id="modal-note" placeholder="메모 (선택사항) — 예: 2차 연락, 답변 없음 등"></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">취소</button>
+      <button class="btn-save" onclick="saveContact()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========================
+// 설정 — 여기만 수정하세요
+// ========================
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx29XQo9SIG-zdgwany9OSxIH8WZ3hT2PJqy7ZMUf5OhcADUu0sQIYne91K-OMLWPrx-g/exec';
+const USERS = {
+  'admin': '1234',   // 아이디: 비밀번호 — 원하시면 변경하세요
+  'manager': '5678'
+};
+
+// ========================
+// 상태
+// ========================
+let appData = null;
+let contactLogs = JSON.parse(localStorage.getItem('contactLogs') || '[]');
+let selectedContactMethod = null;
+let currentModalProduct = null;
+
+// ========================
+// 로그인
+// ========================
+function doLogin() {
+  const id = document.getElementById('login-id').value.trim();
+  const pw = document.getElementById('login-pw').value;
+  if (USERS[id] && USERS[id] === pw) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    sessionStorage.setItem('loggedIn', '1');
+    loadData();
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
+function doLogout() {
+  sessionStorage.removeItem('loggedIn');
+  location.reload();
+}
+if (sessionStorage.getItem('loggedIn')) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadData();
+}
+
+// ========================
+// 데이터 로드
+// ========================
+async function loadData() {
+  try {
+    const res = await fetch(SCRIPT_URL + '?t=' + Date.now());
+    appData = await res.json();
+    renderAll();
+    const now = new Date();
+    document.getElementById('last-updated').textContent = '마지막 새로고침: ' + now.toLocaleTimeString('ko-KR');
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function renderAll() {
+  if (!appData) return;
+  renderDashboard();
+  renderViolations();
+  renderHistory();
+  renderContactTab();
+}
+
+// ========================
+// 탭
+// ========================
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ========================
+// 대시보드
+// ========================
+function renderDashboard() {
+  const products = appData.products || [];
+  const violations = products.filter(p => p.status === '위반');
+  const normal = products.filter(p => p.status !== '위반');
+
+  document.getElementById('stat-total').textContent = products.length;
+  document.getElementById('stat-violations').textContent = violations.length;
+  document.getElementById('stat-normal').textContent = normal.length;
+
+  const lastCheck = products.find(p => p.checkedAt);
+  if (lastCheck) {
+    const d = new Date(lastCheck.checkedAt);
+    document.getElementById('stat-last-check').textContent = d.toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
+  }
+
+  document.getElementById('dashboard-count').textContent = products.length + '개 상품';
+
+  if (products.length === 0) {
+    document.getElementById('dashboard-table').innerHTML = '<div class="empty">상품 데이터가 없습니다</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>상품명</th><th>기준가</th><th>현재가</th><th>상태</th><th>마지막 점검</th><th>링크</th></tr></thead><tbody>';
+  products.forEach(p => {
+    const isViolation = p.status === '위반';
+    const priceClass = isViolation ? 'price-down' : 'price-same';
+    const badge = isViolation
+      ? '<span class="badge badge-danger">위반</span>'
+      : '<span class="badge badge-success">정상</span>';
+    const checked = p.checkedAt ? new Date(p.checkedAt).toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}) : '-';
+    const title = p.title ? p.title.replace(/ : .+$/, '') : 'URL 확인 필요';
+    html += `<tr>
+      <td style="max-width:280px; word-break:break-word;">${title}</td>
+      <td class="price">${p.basePrice ? p.basePrice.toLocaleString() + '원' : '-'}</td>
+      <td class="price ${priceClass}">${p.currentPrice ? p.currentPrice.toLocaleString() + '원' : '-'}</td>
+      <td>${badge}</td>
+      <td style="color:var(--text-muted); font-size:13px;">${checked}</td>
+      <td><a href="${p.url}" target="_blank" style="font-size:13px;">스토어 보기</a></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('dashboard-table').innerHTML = html;
+}
+
+// ========================
+// 위반 현황
+// ========================
+function renderViolations() {
+  const violations = (appData.violations || []);
+  document.getElementById('violations-count').textContent = violations.length + '건';
+
+  if (violations.length === 0) {
+    document.getElementById('violations-table').innerHTML = '<div class="empty">현재 위반 상품이 없습니다 ✓</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>상품명</th><th>기준가</th><th>현재가</th><th>차이</th><th>점검시각</th><th>연락</th></tr></thead><tbody>';
+  violations.forEach((p, idx) => {
+    const diff = p.basePrice && p.currentPrice ? p.basePrice - p.currentPrice : 0;
+    const log = getContactLog(p.url);
+    const checked = p.checkedAt ? new Date(p.checkedAt).toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}) : '-';
+    const title = p.title ? p.title.replace(/ : .+$/, '') : 'URL 확인 필요';
+    const lastContact = log.length > 0 ? `<span class="badge badge-warning">${log[log.length-1].method} ${formatDate(log[log.length-1].date)}</span>` : '';
+    html += `<tr>
+      <td style="max-width:240px; word-break:break-word;">${title}<br><small style="color:var(--text-muted);">${lastContact}</small></td>
+      <td class="price">${p.basePrice ? p.basePrice.toLocaleString() + '원' : '-'}</td>
+      <td class="price price-down">${p.currentPrice ? p.currentPrice.toLocaleString() + '원' : '-'}</td>
+      <td style="color:var(--danger); font-weight:500;">-${diff.toLocaleString()}원</td>
+      <td style="color:var(--text-muted); font-size:13px;">${checked}</td>
+      <td>
+        <div class="contact-btns">
+          <button class="contact-btn" onclick="openModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">연락하기</button>
+        </div>
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('violations-table').innerHTML = html;
+}
+
+// ========================
+// 가격 변동 이력
+// ========================
+function renderHistory() {
+  const statusFilter = document.getElementById('history-status-filter')?.value || '';
+  const dateFilter = document.getElementById('history-date-filter')?.value || '';
+
+  let history = appData?.history || [];
+
+  if (statusFilter) history = history.filter(h => h.status === statusFilter);
+  if (dateFilter) {
+    history = history.filter(h => {
+      if (!h.checkedAt) return false;
+      return h.checkedAt.startsWith(dateFilter);
+    });
+  }
+
+  document.getElementById('history-count').textContent = history.length + '건';
+
+  if (history.length === 0) {
+    document.getElementById('history-table').innerHTML = '<div class="empty">가격 변동 이력이 없습니다</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>변동 시각</th><th>상품명</th><th>기준가</th><th>이전 가격</th><th>변동 후</th><th>상태</th></tr></thead><tbody>';
+  history.forEach(h => {
+    const isViolation = h.status === '위반';
+    const badge = isViolation
+      ? '<span class="badge badge-danger">위반</span>'
+      : '<span class="badge badge-success">정상</span>';
+    const checked = h.checkedAt ? new Date(h.checkedAt).toLocaleString('ko-KR') : '-';
+    const title = h.title ? h.title.replace(/ : .+$/, '') : '-';
+    const diff = h.prevPrice && h.currentPrice ? h.currentPrice - h.prevPrice : null;
+    const diffStr = diff !== null ? (diff > 0 ? `<span style="color:var(--success)">+${diff.toLocaleString()}원</span>` : diff < 0 ? `<span style="color:var(--danger)">${diff.toLocaleString()}원</span>` : '-') : '-';
+    html += `<tr>
+      <td style="font-size:13px; color:var(--text-muted);">${checked}</td>
+      <td style="max-width:220px; word-break:break-word;">${title}</td>
+      <td class="price">${h.basePrice ? h.basePrice.toLocaleString() + '원' : '-'}</td>
+      <td class="price" style="color:var(--text-muted);">${h.prevPrice ? h.prevPrice.toLocaleString() + '원' : '-'}</td>
+      <td class="price">${h.currentPrice ? h.currentPrice.toLocaleString() + '원' : '-'} ${diffStr}</td>
+      <td>${badge}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('history-table').innerHTML = html;
+}
+
+function clearHistoryFilter() {
+  document.getElementById('history-status-filter').value = '';
+  document.getElementById('history-date-filter').value = '';
+  renderHistory();
+}
+
+// ========================
+// 연락 이력
+// ========================
+function getContactLog(url) {
+  return contactLogs.filter(l => l.url === url);
+}
+
+function renderContactTab() {
+  const products = appData?.products || [];
+  const withLogs = products.filter(p => getContactLog(p.url).length > 0);
+  document.getElementById('contact-count').textContent = withLogs.length + '개 상품';
+
+  if (withLogs.length === 0) {
+    document.getElementById('contact-table').innerHTML = '<div class="empty">아직 연락 이력이 없습니다</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>상품명</th><th>연락 횟수</th><th>연락 이력</th><th>마지막 연락</th></tr></thead><tbody>';
+  withLogs.forEach(p => {
+    const logs = getContactLog(p.url);
+    const title = p.title ? p.title.replace(/ : .+$/, '') : 'URL 확인 필요';
+    const lastLog = logs[logs.length - 1];
+    const logItems = logs.map(l => `<span class="contact-log-item">${l.method} ${formatDate(l.date)}</span>`).join('');
+    html += `<tr>
+      <td style="max-width:220px; word-break:break-word;">${title}</td>
+      <td><span class="badge badge-warning">${logs.length}회</span></td>
+      <td><div class="contact-log">${logItems}</div></td>
+      <td style="font-size:13px; color:var(--text-muted);">${formatDate(lastLog.date)}<br><small>${lastLog.note || ''}</small></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('contact-table').innerHTML = html;
+}
+
+// ========================
+// 연락 모달
+// ========================
+function openModal(product) {
+  currentModalProduct = product;
+  selectedContactMethod = null;
+  document.getElementById('modal-product-name').textContent = product.title ? product.title.replace(/ : .+$/, '') : product.url;
+  document.getElementById('modal-note').value = '';
+  document.querySelectorAll('.contact-option').forEach(el => el.classList.remove('selected'));
+  document.getElementById('contact-modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('contact-modal').classList.remove('open');
+  currentModalProduct = null;
+}
+function selectContact(method) {
+  selectedContactMethod = method;
+  document.querySelectorAll('.contact-option').forEach(el => {
+    el.classList.toggle('selected', el.textContent.includes(method));
+  });
+}
+function saveContact() {
+  if (!selectedContactMethod) { alert('연락 방법을 선택해주세요'); return; }
+  const note = document.getElementById('modal-note').value.trim();
+  contactLogs.push({
+    url: currentModalProduct.url,
+    method: selectedContactMethod,
+    note: note,
+    date: new Date().toISOString(),
+    productTitle: currentModalProduct.title
+  });
+  localStorage.setItem('contactLogs', JSON.stringify(contactLogs));
+  closeModal();
+  renderAll();
+}
+
+function formatDate(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return d.toLocaleString('ko-KR', {month:'numeric', day:'numeric', hour:'numeric', minute:'2-digit'});
+}
+</script>
+</body>
+</html>
