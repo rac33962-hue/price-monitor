@@ -164,8 +164,8 @@
   <div class="tabs">
     <div class="tab active" onclick="switchTab('dashboard',this)">대시보드</div>
     <div class="tab" onclick="switchTab('history',this)">가격 변동 이력</div>
-    <div class="tab" onclick="switchTab('contact',this)">연락 이력</div>
     <div class="tab" onclick="switchTab('register',this)">인증점 등록</div>
+    <div class="tab" onclick="switchTab('master',this)">상품 마스터</div>
   </div>
   <div class="content">
 
@@ -187,12 +187,17 @@
           </span>
           <span class="breadcrumb-sep">›</span>
           <span class="breadcrumb-current" id="detail-branch-name"></span>
+          <button class="btn-refresh" style="margin-left:auto;" id="detail-check-btn" onclick="checkBranchNow()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+            지금 점검
+          </button>
         </div>
         <div class="summary-grid" style="grid-template-columns:repeat(3,1fr);">
           <div class="summary-card"><div class="label">전체 상품</div><div class="value" id="detail-stat-total">-</div></div>
           <div class="summary-card danger"><div class="label">위반 상품</div><div class="value" id="detail-stat-violations">-</div></div>
           <div class="summary-card"><div class="label">마지막 점검</div><div class="value" style="font-size:15px;padding-top:6px;" id="detail-stat-checked">-</div></div>
         </div>
+        <div class="filter-bar" id="detail-shop-filter"></div>
         <div class="section">
           <div class="section-header"><h2>상품 현황</h2><span class="count" id="detail-product-count"></span></div>
           <div id="detail-product-table"></div>
@@ -212,13 +217,6 @@
       <div class="section">
         <div class="section-header"><h2>가격 변동 이력</h2><span class="count" id="history-count"></span></div>
         <div id="history-table"><div class="loading"><span class="spinner"></span>불러오는 중...</div></div>
-      </div>
-    </div>
-
-    <div class="tab-content" id="tab-contact">
-      <div class="section">
-        <div class="section-header"><h2>연락 이력</h2><span class="count" id="contact-count"></span></div>
-        <div id="contact-table"></div>
       </div>
     </div>
 
@@ -260,6 +258,13 @@
         <div>
           <div class="product-form">
             <h3 id="product-form-title">상품 등록</h3>
+            <div class="form-group">
+              <label>마스터에서 선택 (선택사항 — 고르면 아래 두 칸 자동 입력)</label>
+              <div class="input-row">
+                <select id="master-brand-select" onchange="populateMasterProductSelect()" style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;"><option value="">브랜드 선택</option></select>
+                <select id="master-product-select" onchange="applyMasterSelection()" style="flex:2;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;"><option value="">제품 선택</option></select>
+              </div>
+            </div>
             <div class="form-group"><label>내부 제품명 (관리용)</label><input type="text" id="prod-name" placeholder="예: 리블 히아루로닉 럭셔리 앰플 250ml" /></div>
             <div class="form-group"><label>기준가 (원)</label><input type="number" id="prod-price" placeholder="예: 92400" /></div>
             <div class="form-group"><label>스마트스토어 URL</label><input type="text" id="prod-url" placeholder="https://smartstore.naver.com/..." /></div>
@@ -270,6 +275,28 @@
             <div id="product-list"><div class="empty">지사와 샵을 선택하세요</div></div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-master">
+      <div class="excel-upload">
+        <h3>📦 브랜드별 상품 일괄 등록</h3>
+        <p>브랜드 / 내부제품명 / 기준가 형식의 엑셀(CSV) 파일을 업로드하면 마스터 목록에 저장돼요. 실제 샵에 상품 등록할 때 여기서 골라서 URL만 추가하면 돼요.</p>
+        <div class="upload-area" onclick="document.getElementById('master-excel-input').click()">
+          <input type="file" id="master-excel-input" accept=".xlsx,.xls,.csv" onchange="handleMasterExcelUpload(event)" />
+          <div class="upload-icon">📁</div>
+          <p>엑셀 파일을 클릭해서 업로드하세요</p>
+          <span>지원 형식: .xlsx, .xls, .csv</span>
+        </div>
+        <button class="template-btn" onclick="downloadMasterTemplate()">📥 양식 다운로드</button>
+      </div>
+      <div class="filter-bar">
+        <select id="master-brand-filter" onchange="renderMasterList()"><option value="">전체 브랜드</option></select>
+        <button onclick="document.getElementById('master-brand-filter').value='';renderMasterList()">초기화</button>
+      </div>
+      <div class="section">
+        <div class="section-header"><h2>등록된 상품 마스터</h2><span class="count" id="master-count"></span></div>
+        <div id="master-table"><div class="loading"><span class="spinner"></span>불러오는 중...</div></div>
       </div>
     </div>
 
@@ -321,7 +348,7 @@ function doLogin() {
     sessionStorage.setItem('loggedIn', '1');
     loadDashboard();
     loadBranchList();
-    renderContactTab();
+    loadMasterList();
   } else {
     document.getElementById('login-error').style.display = 'block';
   }
@@ -332,7 +359,7 @@ if (sessionStorage.getItem('loggedIn')) {
   document.getElementById('app').style.display = 'block';
   loadDashboard();
   loadBranchList();
-  renderContactTab();
+  loadMasterList();
 }
 
 function switchTab(name, el) {
@@ -341,6 +368,7 @@ function switchTab(name, el) {
   el.classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'history') renderHistory();
+  if (name === 'master') renderMasterList();
 }
 
 // 대시보드
@@ -395,9 +423,20 @@ function renderDashboard(branches) {
   document.getElementById('stat-total').textContent = tp;
 }
 
+let currentDetailBranch = null;
+let currentDetailShopFilter = '';
+
 function showBranchDetail(branch) {
+  currentDetailBranch = branch;
+  currentDetailShopFilter = '';
   document.getElementById('branch-list-view').style.display = 'none';
   document.getElementById('detail-view').style.display = 'block';
+  renderDetailView();
+}
+
+function renderDetailView() {
+  const branch = currentDetailBranch;
+  if (!branch) return;
   document.getElementById('detail-branch-name').textContent = branch.name;
   document.getElementById('detail-stat-total').textContent = branch.products.length;
   document.getElementById('detail-stat-violations').textContent = branch.violations.length;
@@ -405,11 +444,39 @@ function showBranchDetail(branch) {
   if (lc && lc.checkedAt) {
     const d = lc.checkedAt.toDate ? lc.checkedAt.toDate() : new Date(lc.checkedAt);
     document.getElementById('detail-stat-checked').textContent = d.toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
+  } else {
+    document.getElementById('detail-stat-checked').textContent = '-';
   }
-  document.getElementById('detail-product-count').textContent = branch.products.length + '개 상품';
-  if (!branch.products.length) { document.getElementById('detail-product-table').innerHTML = '<div class="empty">등록된 상품이 없습니다</div>'; return; }
+
+  // 샵 필터 칩
+  const shopNames = [...new Set(branch.products.map(p => p.shopName || '미지정'))].sort();
+  const filterBar = document.getElementById('detail-shop-filter');
+  if (shopNames.length <= 1) {
+    filterBar.innerHTML = '';
+  } else {
+    let chips = '<button style="' + (currentDetailShopFilter==='' ? 'background:var(--primary);color:white;border-color:var(--primary);' : '') + '" onclick="setDetailShopFilter(\'\')">전체 (' + branch.products.length + ')</button>';
+    shopNames.forEach(name => {
+      const cnt = branch.products.filter(p => (p.shopName||'미지정') === name).length;
+      chips += '<button style="' + (currentDetailShopFilter===name ? 'background:var(--primary);color:white;border-color:var(--primary);' : '') + '" onclick="setDetailShopFilter(\'' + name.replace(/'/g,"\\'") + '\')">' + name + ' (' + cnt + ')</button>';
+    });
+    filterBar.innerHTML = chips;
+  }
+
+  renderDetailProductTable();
+}
+
+function setDetailShopFilter(name) {
+  currentDetailShopFilter = name;
+  renderDetailView();
+}
+
+function renderDetailProductTable() {
+  const branch = currentDetailBranch;
+  const products = currentDetailShopFilter ? branch.products.filter(p => (p.shopName||'미지정') === currentDetailShopFilter) : branch.products;
+  document.getElementById('detail-product-count').textContent = products.length + '개 상품';
+  if (!products.length) { document.getElementById('detail-product-table').innerHTML = '<div class="empty">등록된 상품이 없습니다</div>'; return; }
   let html = '<table><thead><tr><th>샵명</th><th>내부 제품명</th><th>기준가</th><th>현재가</th><th>상태</th><th>마지막 점검</th><th>링크</th><th>연락</th></tr></thead><tbody>';
-  branch.products.forEach(p => {
+  products.forEach(p => {
     const iv = p.status === '위반';
     const badge = iv ? '<span class="badge badge-danger">위반</span>' : '<span class="badge badge-success">정상</span>';
     const checked = p.checkedAt ? (() => { const d = p.checkedAt.toDate ? p.checkedAt.toDate() : new Date(p.checkedAt); return d.toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}); })() : '-';
@@ -418,9 +485,40 @@ function showBranchDetail(branch) {
   document.getElementById('detail-product-table').innerHTML = html + '</tbody></table>';
 }
 
+// 지사 상세보기에서 현재 데이터 다시 불러오기 (Firestore 최신값 반영)
+async function checkBranchNow() {
+  if (!currentDetailBranch) return;
+  const btn = document.getElementById('detail-check-btn');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '점검 중...';
+  btn.disabled = true;
+  try {
+    const bId = currentDetailBranch.id;
+    const branch = { id: bId, name: currentDetailBranch.name, products: [], violations: [] };
+    const shopsSnap = await db.collection('branches').doc(bId).collection('shops').get();
+    for (const sDoc of shopsSnap.docs) {
+      const prodsSnap = await db.collection('branches').doc(bId).collection('shops').doc(sDoc.id).collection('products').get();
+      prodsSnap.forEach(pDoc => {
+        const p = { id: pDoc.id, ...pDoc.data(), branchId: bId, branchName: branch.name, shopName: sDoc.data().name };
+        branch.products.push(p);
+        if (p.status === '위반') branch.violations.push(p);
+      });
+    }
+    currentDetailBranch = branch;
+    renderDetailView();
+    document.getElementById('last-updated').textContent = '마지막 새로고침: ' + new Date().toLocaleTimeString('ko-KR');
+  } catch(e) {
+    alert('불러오기 실패: ' + e.message);
+  } finally {
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+  }
+}
+
 function goBack() {
   document.getElementById('branch-list-view').style.display = 'block';
   document.getElementById('detail-view').style.display = 'none';
+  currentDetailBranch = null;
 }
 
 // 가격 변동 이력
@@ -477,8 +575,10 @@ function saveContact() {
   closeModal(); renderContactTab();
 }
 function renderContactTab() {
+  const countEl = document.getElementById('contact-count');
+  if (!countEl) return; // 연락 이력 탭 제거됨 - 로그는 계속 저장만 됨
   const logs = allContactLogs;
-  document.getElementById('contact-count').textContent = logs.length + '건';
+  countEl.textContent = logs.length + '건';
   if (!logs.length) { document.getElementById('contact-table').innerHTML = '<div class="empty">아직 연락 이력이 없습니다</div>'; return; }
   let html = '<table><thead><tr><th>연락 일시</th><th>지사</th><th>샵</th><th>제품명</th><th>연락 방법</th><th>메모</th></tr></thead><tbody>';
   [...logs].reverse().forEach(l => {
@@ -637,6 +737,92 @@ function downloadTemplate() {
   const csv = '\uFEFF지사명,샵명,내부제품명,기준가,스토어URL\n베니몰,베니몰,리블 히아루로닉 럭셔리 앰플 250ml,92400,https://smartstore.naver.com/...\nJH코스메틱,라퓨어스킨케어,리블 아쿠보 텐션크림 100ml,112800,https://smartstore.naver.com/...';
   const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '인증점_등록_양식.csv'; a.click();
+}
+
+// ========================
+// 상품 마스터 (브랜드별)
+// ========================
+let productMaster = [];
+
+async function loadMasterList() {
+  try {
+    const snap = await db.collection('productMaster').orderBy('brand').get();
+    productMaster = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const brands = [...new Set(productMaster.map(p => p.brand))].sort();
+    const filterSel = document.getElementById('master-brand-filter');
+    if (filterSel) filterSel.innerHTML = '<option value="">전체 브랜드</option>' + brands.map(b => '<option value="' + b + '">' + b + '</option>').join('');
+    renderMasterList();
+    populateMasterDropdowns();
+  } catch(e) { console.error(e); }
+}
+
+function renderMasterList() {
+  const filterSel = document.getElementById('master-brand-filter');
+  const bf = filterSel ? filterSel.value : '';
+  let list = productMaster;
+  if (bf) list = list.filter(p => p.brand === bf);
+  const countEl = document.getElementById('master-count');
+  if (countEl) countEl.textContent = list.length + '개';
+  const tableEl = document.getElementById('master-table');
+  if (!tableEl) return;
+  if (!list.length) { tableEl.innerHTML = '<div class="empty">등록된 상품이 없습니다<br><small>엑셀 업로드로 브랜드별 상품을 등록해주세요</small></div>'; return; }
+  let html = '<table><thead><tr><th>브랜드</th><th>내부 제품명</th><th>기준가</th><th>삭제</th></tr></thead><tbody>';
+  list.forEach(p => {
+    html += '<tr><td style="font-size:13px;font-weight:600;">' + (p.brand||'-') + '</td><td style="max-width:280px;word-break:break-word;">' + (p.internalName||'-') + '</td><td>' + (p.basePrice ? Number(p.basePrice).toLocaleString()+'원' : '-') + '</td><td><button onclick="deleteMasterProduct(\'' + p.id + '\')" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;color:var(--danger);font-size:12px;">삭제</button></td></tr>';
+  });
+  tableEl.innerHTML = html + '</tbody></table>';
+}
+
+async function deleteMasterProduct(id) {
+  if (!confirm('마스터 목록에서 삭제할까요?')) return;
+  await db.collection('productMaster').doc(id).delete();
+  await loadMasterList();
+}
+
+async function handleMasterExcelUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const rows = text.split('\n').map(r => r.split(',').map(c => c.trim().replace(/^"|"$/g, '')));
+  let count = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const [brand, internalName, basePrice] = rows[i];
+    if (!brand || !internalName) continue;
+    await db.collection('productMaster').add({ brand, internalName, basePrice: Number(basePrice) || 0, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    count++;
+  }
+  alert(count + '개 상품이 마스터 목록에 등록됐어요!');
+  await loadMasterList();
+  event.target.value = '';
+}
+
+function downloadMasterTemplate() {
+  const csv = '\uFEFF브랜드,내부제품명,기준가\n리블,리블 히아루로닉 럭셔리 앰플 250ml,92400\n리블,리블 아쿠보 텐션크림 100ml,112800';
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '상품마스터_등록양식.csv'; a.click();
+}
+
+// 인증점 등록 폼에서 마스터 상품 선택 지원
+function populateMasterDropdowns() {
+  const sel = document.getElementById('master-brand-select');
+  if (!sel) return;
+  const brands = [...new Set(productMaster.map(p => p.brand))].sort();
+  sel.innerHTML = '<option value="">브랜드 선택</option>' + brands.map(b => '<option value="' + b + '">' + b + '</option>').join('');
+}
+
+function populateMasterProductSelect() {
+  const brand = document.getElementById('master-brand-select').value;
+  const sel = document.getElementById('master-product-select');
+  const list = brand ? productMaster.filter(p => p.brand === brand) : [];
+  sel.innerHTML = '<option value="">제품 선택</option>' + list.map(p => '<option value="' + p.id + '">' + p.internalName + '</option>').join('');
+}
+
+function applyMasterSelection() {
+  const id = document.getElementById('master-product-select').value;
+  const p = productMaster.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('prod-name').value = p.internalName;
+  document.getElementById('prod-price').value = p.basePrice || '';
 }
 </script>
 </body>
