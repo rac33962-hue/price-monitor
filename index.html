@@ -181,7 +181,7 @@
         <div class="branch-grid" id="branch-grid"><div class="loading"><span class="spinner"></span>데이터 불러오는 중...</div></div>
       </div>
       <div id="detail-view">
-        <div class="breadcrumb">
+        <div class="breadcrumb" id="detail-breadcrumb">
           <span class="breadcrumb-back" onclick="goBack()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>전체 지사
           </span>
@@ -192,15 +192,22 @@
             지금 점검
           </button>
         </div>
-        <div class="summary-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="summary-grid" style="grid-template-columns:repeat(3,1fr);" id="detail-summary-grid">
           <div class="summary-card"><div class="label">전체 상품</div><div class="value" id="detail-stat-total">-</div></div>
           <div class="summary-card danger"><div class="label">위반 상품</div><div class="value" id="detail-stat-violations">-</div></div>
           <div class="summary-card"><div class="label">마지막 점검</div><div class="value" style="font-size:15px;padding-top:6px;" id="detail-stat-checked">-</div></div>
         </div>
-        <div class="filter-bar" id="detail-shop-filter"></div>
-        <div class="section">
-          <div class="section-header"><h2>상품 현황</h2><span class="count" id="detail-product-count"></span></div>
-          <div id="detail-product-table"></div>
+
+        <div id="shop-grid-view">
+          <div class="section-title">샵 현황 — 클릭하면 상세 보기</div>
+          <div class="branch-grid" id="shop-grid"></div>
+        </div>
+
+        <div id="shop-detail-view" style="display:none;">
+          <div class="section">
+            <div class="section-header"><h2>상품 현황</h2><span class="count" id="detail-product-count"></span></div>
+            <div id="detail-product-table"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -424,11 +431,11 @@ function renderDashboard(branches) {
 }
 
 let currentDetailBranch = null;
-let currentDetailShopFilter = '';
+let currentDetailShop = null; // null이면 샵 그리드, 값 있으면 해당 샵 상품 목록
 
 function showBranchDetail(branch) {
   currentDetailBranch = branch;
-  currentDetailShopFilter = '';
+  currentDetailShop = null;
   document.getElementById('branch-list-view').style.display = 'none';
   document.getElementById('detail-view').style.display = 'block';
   renderDetailView();
@@ -437,10 +444,24 @@ function showBranchDetail(branch) {
 function renderDetailView() {
   const branch = currentDetailBranch;
   if (!branch) return;
-  document.getElementById('detail-branch-name').textContent = branch.name;
-  document.getElementById('detail-stat-total').textContent = branch.products.length;
-  document.getElementById('detail-stat-violations').textContent = branch.violations.length;
-  const lc = branch.products.find(p => p.checkedAt);
+
+  // 브레드크럼
+  const backSpan = document.querySelector('#detail-breadcrumb .breadcrumb-back');
+  if (currentDetailShop) {
+    backSpan.onclick = goBackToShopGrid;
+    backSpan.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>' + branch.name;
+    document.getElementById('detail-branch-name').textContent = currentDetailShop;
+  } else {
+    backSpan.onclick = goBack;
+    backSpan.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>전체 지사';
+    document.getElementById('detail-branch-name').textContent = branch.name;
+  }
+
+  const scopedProducts = currentDetailShop ? branch.products.filter(p => (p.shopName||'미지정') === currentDetailShop) : branch.products;
+  const scopedViolations = scopedProducts.filter(p => p.status === '위반');
+  document.getElementById('detail-stat-total').textContent = scopedProducts.length;
+  document.getElementById('detail-stat-violations').textContent = scopedViolations.length;
+  const lc = scopedProducts.find(p => p.checkedAt);
   if (lc && lc.checkedAt) {
     const d = lc.checkedAt.toDate ? lc.checkedAt.toDate() : new Date(lc.checkedAt);
     document.getElementById('detail-stat-checked').textContent = d.toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
@@ -448,31 +469,48 @@ function renderDetailView() {
     document.getElementById('detail-stat-checked').textContent = '-';
   }
 
-  // 샵 필터 칩
-  const shopNames = [...new Set(branch.products.map(p => p.shopName || '미지정'))].sort();
-  const filterBar = document.getElementById('detail-shop-filter');
-  if (shopNames.length <= 1) {
-    filterBar.innerHTML = '';
+  if (currentDetailShop) {
+    document.getElementById('shop-grid-view').style.display = 'none';
+    document.getElementById('shop-detail-view').style.display = 'block';
+    renderDetailProductTable(scopedProducts);
   } else {
-    let chips = '<button style="' + (currentDetailShopFilter==='' ? 'background:var(--primary);color:white;border-color:var(--primary);' : '') + '" onclick="setDetailShopFilter(\'\')">전체 (' + branch.products.length + ')</button>';
-    shopNames.forEach(name => {
-      const cnt = branch.products.filter(p => (p.shopName||'미지정') === name).length;
-      chips += '<button style="' + (currentDetailShopFilter===name ? 'background:var(--primary);color:white;border-color:var(--primary);' : '') + '" onclick="setDetailShopFilter(\'' + name.replace(/'/g,"\\'") + '\')">' + name + ' (' + cnt + ')</button>';
-    });
-    filterBar.innerHTML = chips;
+    document.getElementById('shop-grid-view').style.display = 'block';
+    document.getElementById('shop-detail-view').style.display = 'none';
+    renderShopGrid(branch);
   }
-
-  renderDetailProductTable();
 }
 
-function setDetailShopFilter(name) {
-  currentDetailShopFilter = name;
+function renderShopGrid(branch) {
+  const shopNames = [...new Set(branch.products.map(p => p.shopName || '미지정'))].sort();
+  const grid = document.getElementById('shop-grid');
+  if (!shopNames.length) {
+    grid.innerHTML = '<div class="empty">등록된 샵이 없습니다<br><small>인증점 등록 탭에서 샵과 상품을 추가해주세요</small></div>';
+    return;
+  }
+  let html = '';
+  shopNames.forEach(name => {
+    const shopProducts = branch.products.filter(p => (p.shopName||'미지정') === name);
+    const shopViolations = shopProducts.filter(p => p.status === '위반');
+    html += '<div class="branch-card' + (shopViolations.length > 0 ? ' has-violation' : '') + '" onclick="selectDetailShop(\'' + name.replace(/'/g,"\\'") + '\')">' +
+      (shopViolations.length > 0 ? '<div class="violation-dot"></div>' : '') +
+      '<div class="branch-name">' + name + '</div>' +
+      '<div class="branch-stats"><span class="branch-stat total">전체 ' + shopProducts.length + '개</span>' +
+      (shopViolations.length > 0 ? '<span class="branch-stat violation">위반 ' + shopViolations.length + '건</span>' : '<span class="branch-stat normal">정상</span>') + '</div></div>';
+  });
+  grid.innerHTML = html;
+}
+
+function selectDetailShop(name) {
+  currentDetailShop = name;
   renderDetailView();
 }
 
-function renderDetailProductTable() {
-  const branch = currentDetailBranch;
-  const products = currentDetailShopFilter ? branch.products.filter(p => (p.shopName||'미지정') === currentDetailShopFilter) : branch.products;
+function goBackToShopGrid() {
+  currentDetailShop = null;
+  renderDetailView();
+}
+
+function renderDetailProductTable(products) {
   document.getElementById('detail-product-count').textContent = products.length + '개 상품';
   if (!products.length) { document.getElementById('detail-product-table').innerHTML = '<div class="empty">등록된 상품이 없습니다</div>'; return; }
   let html = '<table><thead><tr><th>샵명</th><th>내부 제품명</th><th>기준가</th><th>현재가</th><th>상태</th><th>마지막 점검</th><th>링크</th><th>연락</th></tr></thead><tbody>';
@@ -519,6 +557,7 @@ function goBack() {
   document.getElementById('branch-list-view').style.display = 'block';
   document.getElementById('detail-view').style.display = 'none';
   currentDetailBranch = null;
+  currentDetailShop = null;
 }
 
 // 가격 변동 이력
