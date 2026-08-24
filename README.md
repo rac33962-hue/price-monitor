@@ -6,101 +6,186 @@
 <title>가격 모니터링 대시보드</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  :root { --bg: #f8f9fa; --surface: #ffffff; --border: #e9ecef; --text: #212529; --text-muted: #6c757d; --primary: #1a73e8; --danger: #d93025; --danger-bg: #fce8e6; --success: #1e8e3e; --success-bg: #e6f4ea; --warning: #f29900; --warning-bg: #fef7e0; --radius: 12px; --radius-sm: 8px; }
+  :root {
+    --bg: #f8f9fa; --surface: #ffffff; --border: #e9ecef;
+    --text: #212529; --text-muted: #6c757d; --primary: #1a73e8;
+    --danger: #d93025; --danger-bg: #fce8e6; --success: #1e8e3e;
+    --success-bg: #e6f4ea; --warning: #f29900; --warning-bg: #fef7e0;
+    --radius: 12px; --radius-sm: 8px;
+  }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* 로그인 */
   #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 48px 40px; width: 360px; text-align: center; }
-  .login-logo { width: 48px; height: 48px; background: var(--primary); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; }
-  .login-logo svg { width: 24px; height: 24px; fill: white; }
-  .login-card h1 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+  .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 48px 40px; width: 360px; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
+  .login-logo { width: 52px; height: 52px; background: var(--primary); border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+  .login-logo svg { width: 26px; height: 26px; fill: white; }
+  .login-card h1 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
   .login-card p { font-size: 14px; color: var(--text-muted); margin-bottom: 28px; }
-  .login-card input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; margin-bottom: 12px; outline: none; }
+  .login-card input { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; margin-bottom: 10px; outline: none; transition: border-color 0.15s; }
   .login-card input:focus { border-color: var(--primary); }
-  .login-card button { width: 100%; padding: 10px; background: var(--primary); color: white; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; }
+  .login-card button { width: 100%; padding: 11px; background: var(--primary); color: white; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; }
+  .login-card button:hover { opacity: 0.9; }
   .login-error { color: var(--danger); font-size: 13px; margin-top: 10px; display: none; }
+
+  /* 앱 */
   #app { display: none; }
   header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
   .header-left { display: flex; align-items: center; gap: 12px; }
   .header-logo { width: 32px; height: 32px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
   .header-logo svg { width: 16px; height: 16px; fill: white; }
-  header h1 { font-size: 16px; font-weight: 600; }
+  header h1 { font-size: 16px; font-weight: 700; }
   .header-right { display: flex; align-items: center; gap: 12px; }
   .last-updated { font-size: 13px; color: var(--text-muted); }
   .btn-refresh { padding: 7px 14px; background: var(--primary); color: white; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .btn-refresh:hover { opacity: 0.9; }
   .btn-logout { padding: 7px 14px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
+  .btn-logout:hover { background: var(--bg); }
+
+  /* 탭 */
   .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 32px; }
-  .tab { padding: 14px 20px; font-size: 14px; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; }
+  .tab { padding: 14px 20px; font-size: 14px; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
+  .tab:hover { color: var(--text); }
   .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
-  .content { padding: 28px 32px; max-width: 1200px; margin: 0 auto; }
+
+  .content { padding: 28px 32px; max-width: 1280px; margin: 0 auto; }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
+
+  /* 요약 카드 */
   .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
   .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
   .summary-card .label { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
-  .summary-card .value { font-size: 28px; font-weight: 600; }
+  .summary-card .value { font-size: 28px; font-weight: 700; }
   .summary-card.danger .value { color: var(--danger); }
+  .summary-card.success .value { color: var(--success); }
+
+  /* 지사 카드 */
   .section-title { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
-  .branch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
-  .branch-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; cursor: pointer; transition: all 0.15s; position: relative; }
-  .branch-card:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .branch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .branch-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; cursor: pointer; transition: all 0.15s; position: relative; }
+  .branch-card:hover { border-color: var(--primary); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(26,115,232,0.1); }
   .branch-card.has-violation { border-color: #f5c6c3; background: #fffafa; }
-  .branch-name { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+  .branch-card.has-violation:hover { border-color: var(--danger); }
+  .branch-name { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
   .branch-stats { display: flex; gap: 6px; flex-wrap: wrap; }
-  .branch-stat { font-size: 12px; padding: 3px 8px; border-radius: 20px; font-weight: 500; }
+  .branch-stat { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
   .branch-stat.violation { background: var(--danger-bg); color: var(--danger); }
   .branch-stat.normal { background: var(--success-bg); color: var(--success); }
   .branch-stat.total { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
-  .violation-dot { width: 8px; height: 8px; background: var(--danger); border-radius: 50%; position: absolute; top: 14px; right: 14px; animation: pulse 1.5s infinite; }
+  .violation-dot { width: 8px; height: 8px; background: var(--danger); border-radius: 50%; position: absolute; top: 12px; right: 12px; animation: pulse 1.5s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* 상세 뷰 */
   #detail-view { display: none; }
   .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; font-size: 14px; }
   .breadcrumb-back { display: flex; align-items: center; gap: 6px; color: var(--primary); cursor: pointer; font-weight: 500; }
+  .breadcrumb-back:hover { text-decoration: underline; }
   .breadcrumb-sep { color: var(--text-muted); }
   .breadcrumb-current { color: var(--text-muted); }
+
+  /* 섹션 */
   .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; overflow: hidden; }
   .section-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
   .section-header h2 { font-size: 15px; font-weight: 600; }
   .section-header .count { font-size: 13px; color: var(--text-muted); }
+
+  /* 테이블 */
   table { width: 100%; border-collapse: collapse; }
   th { padding: 11px 16px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); background: #fafafa; }
   td { padding: 13px 16px; font-size: 14px; border-bottom: 1px solid var(--border); }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: var(--bg); }
+
+  /* 배지 */
   .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
   .badge-danger { background: var(--danger-bg); color: var(--danger); }
   .badge-success { background: var(--success-bg); color: var(--success); }
   .badge-warning { background: var(--warning-bg); color: var(--warning); }
+
   .contact-btn { padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); }
   .contact-btn:hover { background: var(--bg); }
+
+  /* 필터 */
   .filter-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
-  .filter-bar select, .filter-bar input { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; background: var(--surface); outline: none; }
+  .filter-bar select, .filter-bar input { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; background: var(--surface); outline: none; color: var(--text); }
+  .filter-bar select:focus, .filter-bar input:focus { border-color: var(--primary); }
   .filter-bar button { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: white; cursor: pointer; font-size: 13px; }
+
   .empty { text-align: center; padding: 48px 20px; color: var(--text-muted); font-size: 14px; }
   .loading { text-align: center; padding: 48px; color: var(--text-muted); font-size: 14px; }
   .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 연락 모달 */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center; }
   .modal-overlay.open { display: flex; }
   .modal { background: var(--surface); border-radius: var(--radius); padding: 28px; width: 440px; max-width: 90vw; }
   .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
   .modal p { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
-  .modal-product { font-size: 14px; font-weight: 500; margin-bottom: 20px; }
+  .modal-product { font-size: 14px; font-weight: 500; margin-bottom: 20px; color: var(--text); }
   .contact-options { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-  .contact-option { padding: 12px; border: 2px solid var(--border); border-radius: var(--radius-sm); text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; }
+  .contact-option { padding: 12px; border: 2px solid var(--border); border-radius: var(--radius-sm); text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+  .contact-option:hover { border-color: var(--primary); color: var(--primary); }
   .contact-option.selected { border-color: var(--primary); background: #e8f0fe; color: var(--primary); }
   .contact-option .icon { font-size: 20px; margin-bottom: 6px; }
   .modal-note { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; resize: vertical; min-height: 80px; margin-bottom: 16px; font-family: inherit; outline: none; }
+  .modal-note:focus { border-color: var(--primary); }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
   .btn-cancel { padding: 9px 18px; border: 1px solid var(--border); background: transparent; border-radius: var(--radius-sm); font-size: 14px; cursor: pointer; }
   .btn-save { padding: 9px 18px; background: var(--primary); color: white; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; }
   .contact-log { display: flex; flex-wrap: wrap; gap: 4px; }
   .contact-log-item { font-size: 11px; padding: 2px 8px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); color: var(--text-muted); }
+
+  /* 인증점 등록 탭 */
+  .register-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+  .register-sidebar { display: flex; flex-direction: column; gap: 12px; }
+  .register-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .register-card-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
+  .register-card-body { padding: 12px; }
+  .register-list { list-style: none; }
+  .register-list li { padding: 8px 10px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+  .register-list li:hover { background: var(--bg); }
+  .register-list li.active { background: #e8f0fe; color: var(--primary); font-weight: 500; }
+  .register-list li .del-btn { color: var(--text-muted); font-size: 16px; line-height: 1; display: none; cursor: pointer; }
+  .register-list li:hover .del-btn { display: block; }
+  .register-list li .del-btn:hover { color: var(--danger); }
+
+  .input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .input-row input { flex: 1; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; outline: none; }
+  .input-row input:focus { border-color: var(--primary); }
+  .btn-add { padding: 9px 14px; background: var(--primary); color: white; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .btn-add:hover { opacity: 0.9; }
+
+  .product-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+  .product-form h3 { font-size: 15px; font-weight: 600; margin-bottom: 20px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
+  .form-group input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; outline: none; }
+  .form-group input:focus { border-color: var(--primary); }
+  .btn-submit { width: 100%; padding: 11px; background: var(--primary); color: white; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+  .btn-submit:hover { opacity: 0.9; }
+
+  /* 엑셀 업로드 */
+  .excel-upload { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; }
+  .excel-upload h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .excel-upload p { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+  .upload-area { border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 32px; text-align: center; cursor: pointer; transition: all 0.15s; }
+  .upload-area:hover { border-color: var(--primary); background: #f0f6ff; }
+  .upload-area input { display: none; }
+  .upload-icon { font-size: 32px; margin-bottom: 8px; }
+  .upload-area p { font-size: 14px; color: var(--text-muted); margin-bottom: 0; }
+  .upload-area span { font-size: 12px; color: var(--text-muted); }
+  .template-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; background: white; color: var(--text); }
+  .template-btn:hover { background: var(--bg); }
+
   a { color: var(--primary); text-decoration: none; }
   a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
 
+<!-- 로그인 -->
 <div id="login-screen">
   <div class="login-card">
     <div class="login-logo"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
@@ -113,6 +198,7 @@
   </div>
 </div>
 
+<!-- 앱 -->
 <div id="app">
   <header>
     <div class="header-left">
@@ -121,20 +207,24 @@
     </div>
     <div class="header-right">
       <span class="last-updated" id="last-updated">-</span>
-      <button class="btn-refresh" onclick="refreshAll()">
+      <button class="btn-refresh" onclick="loadDashboard()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
         새로고침
       </button>
       <button class="btn-logout" onclick="doLogout()">로그아웃</button>
     </div>
   </header>
+
   <div class="tabs">
     <div class="tab active" onclick="switchTab('dashboard',this)">대시보드</div>
     <div class="tab" onclick="switchTab('history',this)">가격 변동 이력</div>
     <div class="tab" onclick="switchTab('contact',this)">연락 이력</div>
+    <div class="tab" onclick="switchTab('register',this)">인증점 등록</div>
   </div>
+
   <div class="content">
 
+    <!-- 대시보드 -->
     <div class="tab-content active" id="tab-dashboard">
       <div class="summary-grid">
         <div class="summary-card"><div class="label">전체 지사</div><div class="value" id="stat-branches">-</div></div>
@@ -142,10 +232,12 @@
         <div class="summary-card danger"><div class="label">전체 위반 상품</div><div class="value" id="stat-violations">-</div></div>
         <div class="summary-card"><div class="label">전체 모니터링 상품</div><div class="value" id="stat-total">-</div></div>
       </div>
+
       <div id="branch-list-view">
         <div class="section-title">지사 현황 — 클릭하면 상세 보기</div>
         <div class="branch-grid" id="branch-grid"><div class="loading"><span class="spinner"></span>데이터 불러오는 중...</div></div>
       </div>
+
       <div id="detail-view">
         <div class="breadcrumb">
           <span class="breadcrumb-back" onclick="goBack()">
@@ -167,6 +259,7 @@
       </div>
     </div>
 
+    <!-- 가격 변동 이력 -->
     <div class="tab-content" id="tab-history">
       <div class="filter-bar">
         <select id="history-branch-filter" onchange="renderHistory()"><option value="">전체 지사</option></select>
@@ -184,6 +277,7 @@
       </div>
     </div>
 
+    <!-- 연락 이력 -->
     <div class="tab-content" id="tab-contact">
       <div class="section">
         <div class="section-header"><h2>연락 이력</h2><span class="count" id="contact-count"></span></div>
@@ -191,9 +285,91 @@
       </div>
     </div>
 
+    <!-- 인증점 등록 -->
+    <div class="tab-content" id="tab-register">
+
+      <!-- 엑셀 업로드 -->
+      <div class="excel-upload">
+        <h3>📊 엑셀로 한 번에 등록</h3>
+        <p>지사명 / 샵명 / 내부제품명 / 기준가 / 스토어URL 형식의 엑셀 파일을 업로드하면 한 번에 등록돼요</p>
+        <div class="upload-area" onclick="document.getElementById('excel-input').click()">
+          <input type="file" id="excel-input" accept=".xlsx,.xls" onchange="handleExcelUpload(event)" />
+          <div class="upload-icon">📁</div>
+          <p>엑셀 파일을 클릭해서 업로드하세요</p>
+          <span>지원 형식: .xlsx, .xls</span>
+        </div>
+        <button class="template-btn" onclick="downloadTemplate()">📥 양식 다운로드</button>
+      </div>
+
+      <!-- 직접 등록 -->
+      <div class="register-layout">
+        <div class="register-sidebar">
+          <!-- 지사 -->
+          <div class="register-card">
+            <div class="register-card-header">
+              지사 목록
+              <span style="font-size:12px;color:var(--text-muted)" id="branch-count-badge"></span>
+            </div>
+            <div class="register-card-body">
+              <div class="input-row">
+                <input type="text" id="new-branch-name" placeholder="지사명 입력" onkeydown="if(event.key==='Enter') addBranch()" />
+                <button class="btn-add" onclick="addBranch()">추가</button>
+              </div>
+              <ul class="register-list" id="branch-list"></ul>
+            </div>
+          </div>
+
+          <!-- 샵 -->
+          <div class="register-card">
+            <div class="register-card-header">
+              샵 목록
+              <span style="font-size:12px;color:var(--text-muted)" id="shop-count-badge"></span>
+            </div>
+            <div class="register-card-body">
+              <div class="input-row">
+                <input type="text" id="new-shop-name" placeholder="샵명 입력" onkeydown="if(event.key==='Enter') addShop()" />
+                <button class="btn-add" onclick="addShop()">추가</button>
+              </div>
+              <ul class="register-list" id="shop-list"><li style="color:var(--text-muted);font-size:13px;padding:8px 10px;">지사를 먼저 선택하세요</li></ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- 상품 등록 폼 -->
+        <div>
+          <div class="product-form">
+            <h3 id="product-form-title">상품 등록</h3>
+            <div class="form-group">
+              <label>내부 제품명 (관리용)</label>
+              <input type="text" id="prod-name" placeholder="예: 리블 히아루로닉 럭셔리 앰플 250ml" />
+            </div>
+            <div class="form-group">
+              <label>기준가 (원)</label>
+              <input type="number" id="prod-price" placeholder="예: 92400" />
+            </div>
+            <div class="form-group">
+              <label>스마트스토어 URL</label>
+              <input type="text" id="prod-url" placeholder="https://smartstore.naver.com/..." />
+            </div>
+            <button class="btn-submit" onclick="addProduct()">상품 등록</button>
+          </div>
+
+          <!-- 등록된 상품 목록 -->
+          <div class="section" style="margin-top:16px;">
+            <div class="section-header">
+              <h2 id="product-list-title">등록된 상품</h2>
+              <span class="count" id="product-count"></span>
+            </div>
+            <div id="product-list"><div class="empty">지사와 샵을 선택하세요</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
+<!-- 연락 모달 -->
 <div class="modal-overlay" id="contact-modal">
   <div class="modal">
     <h3>연락 기록 남기기</h3>
@@ -212,154 +388,474 @@
   </div>
 </div>
 
-<script>
-const BRANCHES = [
-  { name: '베니몰', url: 'https://script.google.com/macros/s/AKfycbx29XQo9SIG-zdgwany9OSxIH8WZ3hT2PJqy7ZMUf5OhcADUu0sQIYne91K-OMLWPrx-g/exec' },
-  // 지사 추가할 때 여기에 추가하세요:
-  // { name: '지사이름', url: '앱스크립트 배포 URL' },
-];
-const USERS = { 'admin': '1234', 'manager': '5678' };
-let allData = {}, contactLogs = JSON.parse(localStorage.getItem('contactLogs')||'[]'), selectedContactMethod = null, currentModalProduct = null, currentBranch = null;
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js';
+import { getFirestore, collection, doc, getDocs, getDoc, addDoc, setDoc, deleteDoc, query, orderBy, limit, where, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js';
 
-function doLogin() {
-  const id = document.getElementById('login-id').value.trim(), pw = document.getElementById('login-pw').value;
+const firebaseConfig = {
+  apiKey: "AIzaSyC09kByYMLraNUzU5r5QaxW33yr-Ku5cFg",
+  authDomain: "monitoring-70b27.firebaseapp.com",
+  projectId: "monitoring-70b27",
+  storageBucket: "monitoring-70b27.firebasestorage.app",
+  messagingSenderId: "182674460492",
+  appId: "1:182674460492:web:96d8bc93e85aa2a89489e9"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// ========================
+// 전역 상태
+// ========================
+const USERS = { 'admin': '1234', 'manager': '5678' };
+let selectedBranch = null;
+let selectedShop = null;
+let selectedContactMethod = null;
+let currentModalProduct = null;
+let allHistoryData = [];
+let allContactLogs = JSON.parse(localStorage.getItem('contactLogs') || '[]');
+
+// ========================
+// 로그인
+// ========================
+window.doLogin = function() {
+  const id = document.getElementById('login-id').value.trim();
+  const pw = document.getElementById('login-pw').value;
   if (USERS[id] && USERS[id] === pw) {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
-    sessionStorage.setItem('loggedIn','1'); loadAllBranches();
-  } else { document.getElementById('login-error').style.display = 'block'; }
+    sessionStorage.setItem('loggedIn', '1');
+    loadDashboard();
+    loadRegisterTab();
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+  }
 }
-function doLogout() { sessionStorage.removeItem('loggedIn'); location.reload(); }
-if (sessionStorage.getItem('loggedIn')) { document.getElementById('login-screen').style.display='none'; document.getElementById('app').style.display='block'; loadAllBranches(); }
+window.doLogout = function() { sessionStorage.removeItem('loggedIn'); location.reload(); }
+if (sessionStorage.getItem('loggedIn')) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadDashboard();
+  loadRegisterTab();
+}
 
-async function loadAllBranches() {
+// ========================
+// 탭
+// ========================
+window.switchTab = function(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ========================
+// 대시보드
+// ========================
+window.loadDashboard = async function() {
   document.getElementById('branch-grid').innerHTML = '<div class="loading"><span class="spinner"></span>데이터 불러오는 중...</div>';
-  await Promise.all(BRANCHES.map(async b => {
-    try { const r = await fetch(b.url+'?t='+Date.now()); allData[b.name] = await r.json(); }
-    catch(e) { allData[b.name] = {error:true, shopName:b.name, products:[], history:[], violations:[]}; }
-  }));
-  renderDashboard(); renderHistoryFilters(); renderHistory(); renderContactTab();
-  document.getElementById('last-updated').textContent = '마지막 새로고침: '+new Date().toLocaleTimeString('ko-KR');
+  try {
+    const branchesSnap = await getDocs(collection(db, 'branches'));
+    const branches = [];
+    for (const bDoc of branchesSnap.docs) {
+      const branch = { id: bDoc.id, ...bDoc.data(), shops: [], products: [], violations: [] };
+      const shopsSnap = await getDocs(collection(db, 'branches', bDoc.id, 'shops'));
+      for (const sDoc of shopsSnap.docs) {
+        const shop = { id: sDoc.id, ...sDoc.data(), products: [] };
+        const prodsSnap = await getDocs(collection(db, 'branches', bDoc.id, 'shops', sDoc.id, 'products'));
+        prodsSnap.forEach(pDoc => {
+          const p = { id: pDoc.id, ...pDoc.data(), branchId: bDoc.id, branchName: branch.name, shopName: shop.name };
+          shop.products.push(p);
+          branch.products.push(p);
+          if (p.status === '위반') { branch.violations.push(p); }
+        });
+        branch.shops.push(shop);
+      }
+      branches.push(branch);
+    }
+    renderDashboard(branches);
+    document.getElementById('last-updated').textContent = '마지막 새로고침: ' + new Date().toLocaleTimeString('ko-KR');
+  } catch(e) {
+    document.getElementById('branch-grid').innerHTML = '<div class="empty">데이터 불러오기 실패</div>';
+  }
 }
-function refreshAll() { loadAllBranches(); }
 
-function switchTab(name, el) {
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active'); document.getElementById('tab-'+name).classList.add('active');
-}
+function renderDashboard(branches) {
+  let tv = 0, tp = 0, vb = 0;
+  const grid = document.getElementById('branch-grid');
+  grid.innerHTML = '';
 
-function renderDashboard() {
-  let tp=0, tv=0, vb=0;
-  const grid = document.getElementById('branch-grid'); grid.innerHTML = '';
-  BRANCHES.forEach(b => {
-    const data = allData[b.name]; if(!data) return;
-    const products = data.products||[], violations = data.violations||[];
-    tp += products.length; tv += violations.length; if(violations.length>0) vb++;
+  if (branches.length === 0) {
+    grid.innerHTML = '<div class="empty">등록된 지사가 없습니다<br><small>인증점 등록 탭에서 추가해주세요</small></div>';
+  }
+
+  branches.forEach(branch => {
+    tp += branch.products.length;
+    tv += branch.violations.length;
+    if (branch.violations.length > 0) vb++;
     const card = document.createElement('div');
-    card.className = 'branch-card'+(violations.length>0?' has-violation':'');
-    card.onclick = () => showBranchDetail(b.name);
-    card.innerHTML = (violations.length>0?'<div class="violation-dot"></div>':'')+
-      '<div class="branch-name">'+b.name+'</div>'+
-      '<div class="branch-stats">'+
-      '<span class="branch-stat total">전체 '+products.length+'개</span>'+
-      (violations.length>0?'<span class="branch-stat violation">위반 '+violations.length+'건</span>':'<span class="branch-stat normal">정상</span>')+
+    card.className = 'branch-card' + (branch.violations.length > 0 ? ' has-violation' : '');
+    card.onclick = () => showBranchDetail(branch);
+    card.innerHTML = (branch.violations.length > 0 ? '<div class="violation-dot"></div>' : '') +
+      '<div class="branch-name">' + branch.name + '</div>' +
+      '<div class="branch-stats">' +
+      '<span class="branch-stat total">전체 ' + branch.products.length + '개</span>' +
+      (branch.violations.length > 0
+        ? '<span class="branch-stat violation">위반 ' + branch.violations.length + '건</span>'
+        : '<span class="branch-stat normal">정상</span>') +
       '</div>';
     grid.appendChild(card);
   });
-  document.getElementById('stat-branches').textContent = BRANCHES.length;
+
+  document.getElementById('stat-branches').textContent = branches.length;
   document.getElementById('stat-violation-branches').textContent = vb;
   document.getElementById('stat-violations').textContent = tv;
   document.getElementById('stat-total').textContent = tp;
 }
 
-function showBranchDetail(name) {
-  currentBranch = name; const data = allData[name]; if(!data) return;
+function showBranchDetail(branch) {
   document.getElementById('branch-list-view').style.display = 'none';
   document.getElementById('detail-view').style.display = 'block';
-  document.getElementById('detail-branch-name').textContent = name;
-  const products = data.products||[], violations = data.violations||[];
-  document.getElementById('detail-stat-total').textContent = products.length;
-  document.getElementById('detail-stat-violations').textContent = violations.length;
-  const lc = products.find(p=>p.checkedAt);
-  if(lc) document.getElementById('detail-stat-checked').textContent = new Date(lc.checkedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
-  document.getElementById('detail-product-count').textContent = products.length+'개 상품';
-  if(!products.length) { document.getElementById('detail-product-table').innerHTML='<div class="empty">상품 데이터가 없습니다</div>'; return; }
-  let html = '<table><thead><tr><th>상품명</th><th>기준가</th><th>현재가</th><th>상태</th><th>마지막 점검</th><th>링크</th><th>연락</th></tr></thead><tbody>';
-  products.forEach(p => {
-    const iv = p.status==='위반', badge = iv?'<span class="badge badge-danger">위반</span>':'<span class="badge badge-success">정상</span>';
-    const checked = p.checkedAt?new Date(p.checkedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}):'-';
-    const title = p.title?p.title.replace(/ : .+$/,''):'URL 확인 필요';
-    html += '<tr style="'+(iv?'background:#fffafa;':'')+'"><td style="max-width:260px;word-break:break-word;">'+title+'</td><td style="font-weight:500;">'+(p.basePrice?p.basePrice.toLocaleString()+'원':'-')+'</td><td style="font-weight:500;'+(iv?'color:var(--danger);':'')+'">'+
-    (p.currentPrice?p.currentPrice.toLocaleString()+'원':'-')+'</td><td>'+badge+'</td><td style="color:var(--text-muted);font-size:13px;">'+checked+'</td>'+
-    '<td><a href="'+p.url+'" target="_blank" style="font-size:13px;">스토어 보기</a></td>'+
-    '<td>'+(iv?'<button class="contact-btn" onclick=\'openModal('+JSON.stringify(p).replace(/'/g,"&#39;")+')\'>연락하기</button>':'')+'</td></tr>';
+  document.getElementById('detail-branch-name').textContent = branch.name;
+  document.getElementById('detail-stat-total').textContent = branch.products.length;
+  document.getElementById('detail-stat-violations').textContent = branch.violations.length;
+
+  const lastChecked = branch.products.find(p => p.checkedAt);
+  if (lastChecked && lastChecked.checkedAt) {
+    const d = lastChecked.checkedAt.toDate ? lastChecked.checkedAt.toDate() : new Date(lastChecked.checkedAt);
+    document.getElementById('detail-stat-checked').textContent = d.toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
+  }
+
+  document.getElementById('detail-product-count').textContent = branch.products.length + '개 상품';
+
+  if (!branch.products.length) {
+    document.getElementById('detail-product-table').innerHTML = '<div class="empty">등록된 상품이 없습니다</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>샵명</th><th>내부 제품명</th><th>기준가</th><th>현재가</th><th>상태</th><th>마지막 점검</th><th>링크</th><th>연락</th></tr></thead><tbody>';
+  branch.products.forEach(p => {
+    const isViolation = p.status === '위반';
+    const badge = isViolation ? '<span class="badge badge-danger">위반</span>' : '<span class="badge badge-success">정상</span>';
+    const checked = p.checkedAt ? (() => { const d = p.checkedAt.toDate ? p.checkedAt.toDate() : new Date(p.checkedAt); return d.toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}); })() : '-';
+    html += '<tr style="' + (isViolation ? 'background:#fffafa;' : '') + '">' +
+      '<td style="font-size:13px;color:var(--text-muted);">' + (p.shopName||'-') + '</td>' +
+      '<td style="max-width:220px;word-break:break-word;font-weight:500;">' + (p.internalName||p.title||'-') + '</td>' +
+      '<td>' + (p.basePrice ? Number(p.basePrice).toLocaleString() + '원' : '-') + '</td>' +
+      '<td style="' + (isViolation ? 'color:var(--danger);font-weight:500;' : '') + '">' + (p.currentPrice ? Number(p.currentPrice).toLocaleString() + '원' : '-') + '</td>' +
+      '<td>' + badge + '</td>' +
+      '<td style="font-size:13px;color:var(--text-muted);">' + checked + '</td>' +
+      '<td><a href="' + p.url + '" target="_blank" style="font-size:13px;">스토어 보기</a></td>' +
+      '<td>' + (isViolation ? '<button class="contact-btn" onclick=\'openModal(' + JSON.stringify(p).replace(/'/g,"&#39;") + ')\'>연락하기</button>' : '') + '</td>' +
+      '</tr>';
   });
-  document.getElementById('detail-product-table').innerHTML = html+'</tbody></table>';
+  html += '</tbody></table>';
+  document.getElementById('detail-product-table').innerHTML = html;
 }
 
-function goBack() { currentBranch=null; document.getElementById('branch-list-view').style.display='block'; document.getElementById('detail-view').style.display='none'; }
-
-function renderHistoryFilters() {
-  const sel = document.getElementById('history-branch-filter');
-  sel.innerHTML = '<option value="">전체 지사</option>';
-  BRANCHES.forEach(b => { const o=document.createElement('option'); o.value=b.name; o.textContent=b.name; sel.appendChild(o); });
+window.goBack = function() {
+  document.getElementById('branch-list-view').style.display = 'block';
+  document.getElementById('detail-view').style.display = 'none';
 }
 
-function renderHistory() {
-  const bf=document.getElementById('history-branch-filter')?.value||'', sf=document.getElementById('history-status-filter')?.value||'', df=document.getElementById('history-date-filter')?.value||'';
-  let history = [];
-  BRANCHES.forEach(b => { const data=allData[b.name]; if(data&&data.history) data.history.forEach(h=>history.push({...h,branchName:b.name})); });
-  if(bf) history=history.filter(h=>h.shopName===bf||h.branchName===bf);
-  if(sf) history=history.filter(h=>h.status===sf);
-  if(df) history=history.filter(h=>h.checkedAt&&h.checkedAt.startsWith(df));
-  history.sort((a,b)=>new Date(b.checkedAt)-new Date(a.checkedAt));
-  document.getElementById('history-count').textContent = history.length+'건';
-  if(!history.length) { document.getElementById('history-table').innerHTML='<div class="empty">가격 변동 이력이 없습니다</div>'; return; }
-  let html='<table><thead><tr><th>변동 시각</th><th>지사</th><th>상품명</th><th>기준가</th><th>이전 가격</th><th>변동 후</th><th>상태</th></tr></thead><tbody>';
-  history.forEach(h => {
-    const badge=h.status==='위반'?'<span class="badge badge-danger">위반</span>':'<span class="badge badge-success">정상</span>';
-    const diff=h.prevPrice&&h.currentPrice?h.currentPrice-h.prevPrice:null;
-    const diffStr=diff!==null?(diff>0?'<span style="color:var(--success)">+'+diff.toLocaleString()+'원</span>':diff<0?'<span style="color:var(--danger)">'+diff.toLocaleString()+'원</span>':''):'';
-    html+='<tr><td style="font-size:13px;color:var(--text-muted);white-space:nowrap;">'+(h.checkedAt?new Date(h.checkedAt).toLocaleString('ko-KR'):'-')+'</td><td style="font-size:13px;font-weight:500;">'+(h.shopName||h.branchName)+'</td><td style="max-width:200px;word-break:break-word;">'+(h.title?h.title.replace(/ : .+$/,''):'-')+'</td><td>'+(h.basePrice?h.basePrice.toLocaleString()+'원':'-')+'</td><td style="color:var(--text-muted);">'+(h.prevPrice?h.prevPrice.toLocaleString()+'원':'-')+'</td><td>'+(h.currentPrice?h.currentPrice.toLocaleString()+'원':'-')+' '+diffStr+'</td><td>'+badge+'</td></tr>';
-  });
-  document.getElementById('history-table').innerHTML=html+'</tbody></table>';
+// ========================
+// 가격 변동 이력
+// ========================
+window.renderHistory = async function() {
+  const bf = document.getElementById('history-branch-filter')?.value || '';
+  const sf = document.getElementById('history-status-filter')?.value || '';
+  const df = document.getElementById('history-date-filter')?.value || '';
+  document.getElementById('history-table').innerHTML = '<div class="loading"><span class="spinner"></span>불러오는 중...</div>';
+
+  try {
+    let q = query(collection(db, 'priceHistory'), orderBy('checkedAt', 'desc'), limit(500));
+    const snap = await getDocs(q);
+    let history = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    if (bf) history = history.filter(h => h.branchName === bf);
+    if (sf) history = history.filter(h => h.status === sf);
+    if (df) history = history.filter(h => {
+      if (!h.checkedAt) return false;
+      const d = h.checkedAt.toDate ? h.checkedAt.toDate() : new Date(h.checkedAt);
+      return d.toISOString().startsWith(df);
+    });
+
+    document.getElementById('history-count').textContent = history.length + '건';
+    if (!history.length) { document.getElementById('history-table').innerHTML = '<div class="empty">가격 변동 이력이 없습니다</div>'; return; }
+
+    let html = '<table><thead><tr><th>점검 시각</th><th>지사</th><th>샵</th><th>제품명</th><th>기준가</th><th>현재가</th><th>상태</th></tr></thead><tbody>';
+    history.forEach(h => {
+      const badge = h.status === '위반' ? '<span class="badge badge-danger">위반</span>' : '<span class="badge badge-success">정상</span>';
+      const d = h.checkedAt ? (h.checkedAt.toDate ? h.checkedAt.toDate() : new Date(h.checkedAt)) : null;
+      const checked = d ? d.toLocaleString('ko-KR') : '-';
+      html += '<tr><td style="font-size:13px;color:var(--text-muted);white-space:nowrap;">' + checked + '</td>' +
+        '<td style="font-size:13px;font-weight:500;">' + (h.branchName||'-') + '</td>' +
+        '<td style="font-size:13px;color:var(--text-muted);">' + (h.shopName||'-') + '</td>' +
+        '<td style="max-width:200px;word-break:break-word;">' + (h.internalName||h.title||'-') + '</td>' +
+        '<td>' + (h.basePrice ? Number(h.basePrice).toLocaleString() + '원' : '-') + '</td>' +
+        '<td style="' + (h.status==='위반'?'color:var(--danger);font-weight:500;':'') + '">' + (h.currentPrice ? Number(h.currentPrice).toLocaleString() + '원' : '-') + '</td>' +
+        '<td>' + badge + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('history-table').innerHTML = html;
+  } catch(e) {
+    document.getElementById('history-table').innerHTML = '<div class="empty">데이터 불러오기 실패</div>';
+  }
 }
 
-function clearHistoryFilter() { document.getElementById('history-branch-filter').value=''; document.getElementById('history-status-filter').value=''; document.getElementById('history-date-filter').value=''; renderHistory(); }
-
-function getContactLog(url) { return contactLogs.filter(l=>l.url===url); }
-
-function renderContactTab() {
-  let ap=[];
-  BRANCHES.forEach(b => { const data=allData[b.name]; if(data&&data.products) data.products.forEach(p=>ap.push({...p,branchName:b.name})); });
-  const wl=ap.filter(p=>getContactLog(p.url).length>0);
-  document.getElementById('contact-count').textContent=wl.length+'개 상품';
-  if(!wl.length) { document.getElementById('contact-table').innerHTML='<div class="empty">아직 연락 이력이 없습니다</div>'; return; }
-  let html='<table><thead><tr><th>지사</th><th>상품명</th><th>연락 횟수</th><th>연락 이력</th><th>마지막 연락</th></tr></thead><tbody>';
-  wl.forEach(p => {
-    const logs=getContactLog(p.url), ll=logs[logs.length-1];
-    html+='<tr><td style="font-size:13px;font-weight:500;">'+p.branchName+'</td><td style="max-width:200px;word-break:break-word;">'+(p.title?p.title.replace(/ : .+$/,''):'URL 확인 필요')+'</td><td><span class="badge badge-warning">'+logs.length+'회</span></td><td><div class="contact-log">'+logs.map(l=>'<span class="contact-log-item">'+l.method+' '+formatDate(l.date)+'</span>').join('')+'</div></td><td style="font-size:13px;color:var(--text-muted);">'+formatDate(ll.date)+'<br><small>'+(ll.note||'')+'</small></td></tr>';
-  });
-  document.getElementById('contact-table').innerHTML=html+'</tbody></table>';
+window.clearHistoryFilter = function() {
+  document.getElementById('history-branch-filter').value = '';
+  document.getElementById('history-status-filter').value = '';
+  document.getElementById('history-date-filter').value = '';
+  renderHistory();
 }
 
-function openModal(p) {
-  currentModalProduct=p; selectedContactMethod=null;
-  document.getElementById('modal-product-name').textContent=p.title?p.title.replace(/ : .+$/,''):p.url;
-  document.getElementById('modal-note').value='';
-  document.querySelectorAll('.contact-option').forEach(el=>el.classList.remove('selected'));
+// ========================
+// 연락 이력
+// ========================
+window.openModal = function(p) {
+  currentModalProduct = p;
+  selectedContactMethod = null;
+  document.getElementById('modal-product-name').textContent = p.internalName || p.title || p.url;
+  document.getElementById('modal-note').value = '';
+  document.querySelectorAll('.contact-option').forEach(el => el.classList.remove('selected'));
   document.getElementById('contact-modal').classList.add('open');
 }
-function closeModal() { document.getElementById('contact-modal').classList.remove('open'); }
-function selectContact(m) { selectedContactMethod=m; document.querySelectorAll('.contact-option').forEach(el=>el.classList.toggle('selected',el.textContent.includes(m))); }
-function saveContact() {
-  if(!selectedContactMethod) { alert('연락 방법을 선택해주세요'); return; }
-  contactLogs.push({url:currentModalProduct.url,method:selectedContactMethod,note:document.getElementById('modal-note').value.trim(),date:new Date().toISOString(),productTitle:currentModalProduct.title});
-  localStorage.setItem('contactLogs',JSON.stringify(contactLogs));
-  closeModal(); renderContactTab(); if(currentBranch) showBranchDetail(currentBranch);
+window.closeModal = function() { document.getElementById('contact-modal').classList.remove('open'); }
+window.selectContact = function(m) {
+  selectedContactMethod = m;
+  document.querySelectorAll('.contact-option').forEach(el => el.classList.toggle('selected', el.textContent.includes(m)));
 }
-function formatDate(iso) { if(!iso) return '-'; return new Date(iso).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}); }
+window.saveContact = function() {
+  if (!selectedContactMethod) { alert('연락 방법을 선택해주세요'); return; }
+  allContactLogs.push({
+    url: currentModalProduct.url,
+    method: selectedContactMethod,
+    note: document.getElementById('modal-note').value.trim(),
+    date: new Date().toISOString(),
+    productTitle: currentModalProduct.internalName || currentModalProduct.title,
+    branchName: currentModalProduct.branchName,
+    shopName: currentModalProduct.shopName
+  });
+  localStorage.setItem('contactLogs', JSON.stringify(allContactLogs));
+  closeModal();
+  renderContactTab();
+}
+
+function renderContactTab() {
+  const logs = allContactLogs;
+  document.getElementById('contact-count').textContent = logs.length + '건';
+  if (!logs.length) { document.getElementById('contact-table').innerHTML = '<div class="empty">아직 연락 이력이 없습니다</div>'; return; }
+  let html = '<table><thead><tr><th>연락 일시</th><th>지사</th><th>샵</th><th>제품명</th><th>연락 방법</th><th>메모</th></tr></thead><tbody>';
+  [...logs].reverse().forEach(l => {
+    html += '<tr>' +
+      '<td style="font-size:13px;color:var(--text-muted);white-space:nowrap;">' + new Date(l.date).toLocaleString('ko-KR') + '</td>' +
+      '<td style="font-size:13px;font-weight:500;">' + (l.branchName||'-') + '</td>' +
+      '<td style="font-size:13px;color:var(--text-muted);">' + (l.shopName||'-') + '</td>' +
+      '<td style="max-width:200px;word-break:break-word;">' + (l.productTitle||'-') + '</td>' +
+      '<td><span class="badge badge-warning">' + l.method + '</span></td>' +
+      '<td style="font-size:13px;color:var(--text-muted);">' + (l.note||'-') + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('contact-table').innerHTML = html;
+}
+
+// ========================
+// 인증점 등록
+// ========================
+async function loadRegisterTab() {
+  await loadBranchList();
+}
+
+async function loadBranchList() {
+  const snap = await getDocs(collection(db, 'branches'));
+  const ul = document.getElementById('branch-list');
+  ul.innerHTML = '';
+  document.getElementById('branch-count-badge').textContent = snap.size + '개';
+
+  // 이력 필터 드롭다운도 업데이트
+  const sel = document.getElementById('history-branch-filter');
+  sel.innerHTML = '<option value="">전체 지사</option>';
+
+  snap.forEach(d => {
+    const li = document.createElement('li');
+    li.dataset.id = d.id;
+    li.dataset.name = d.data().name;
+    li.innerHTML = '<span>' + d.data().name + '</span><span class="del-btn" onclick="deleteBranch(event,\'' + d.id + '\')">×</span>';
+    li.onclick = (e) => { if (e.target.classList.contains('del-btn')) return; selectBranch(d.id, d.data().name, li); };
+    ul.appendChild(li);
+
+    const opt = document.createElement('option');
+    opt.value = d.data().name;
+    opt.textContent = d.data().name;
+    sel.appendChild(opt);
+  });
+}
+
+window.addBranch = async function() {
+  const name = document.getElementById('new-branch-name').value.trim();
+  if (!name) return;
+  await addDoc(collection(db, 'branches'), { name, createdAt: serverTimestamp() });
+  document.getElementById('new-branch-name').value = '';
+  await loadBranchList();
+}
+
+window.deleteBranch = async function(e, id) {
+  e.stopPropagation();
+  if (!confirm('지사를 삭제하면 하위 샵과 상품도 모두 삭제됩니다. 계속할까요?')) return;
+  await deleteDoc(doc(db, 'branches', id));
+  if (selectedBranch === id) { selectedBranch = null; selectedShop = null; document.getElementById('shop-list').innerHTML = '<li style="color:var(--text-muted);font-size:13px;padding:8px 10px;">지사를 먼저 선택하세요</li>'; }
+  await loadBranchList();
+}
+
+async function selectBranch(id, name, li) {
+  selectedBranch = id;
+  selectedShop = null;
+  document.querySelectorAll('#branch-list li').forEach(el => el.classList.remove('active'));
+  li.classList.add('active');
+  document.getElementById('product-form-title').textContent = name + ' > 상품 등록';
+  await loadShopList();
+}
+
+async function loadShopList() {
+  if (!selectedBranch) return;
+  const snap = await getDocs(collection(db, 'branches', selectedBranch, 'shops'));
+  const ul = document.getElementById('shop-list');
+  ul.innerHTML = '';
+  document.getElementById('shop-count-badge').textContent = snap.size + '개';
+  if (!snap.size) { ul.innerHTML = '<li style="color:var(--text-muted);font-size:13px;padding:8px 10px;">샵이 없습니다</li>'; return; }
+  snap.forEach(d => {
+    const li = document.createElement('li');
+    li.dataset.id = d.id;
+    li.innerHTML = '<span>' + d.data().name + '</span><span class="del-btn" onclick="deleteShop(event,\'' + d.id + '\')">×</span>';
+    li.onclick = (e) => { if (e.target.classList.contains('del-btn')) return; selectShop(d.id, d.data().name, li); };
+    ul.appendChild(li);
+  });
+}
+
+window.addShop = async function() {
+  if (!selectedBranch) { alert('지사를 먼저 선택해주세요'); return; }
+  const name = document.getElementById('new-shop-name').value.trim();
+  if (!name) return;
+  await addDoc(collection(db, 'branches', selectedBranch, 'shops'), { name, createdAt: serverTimestamp() });
+  document.getElementById('new-shop-name').value = '';
+  await loadShopList();
+}
+
+window.deleteShop = async function(e, id) {
+  e.stopPropagation();
+  if (!confirm('샵을 삭제하면 하위 상품도 모두 삭제됩니다. 계속할까요?')) return;
+  await deleteDoc(doc(db, 'branches', selectedBranch, 'shops', id));
+  if (selectedShop === id) { selectedShop = null; }
+  await loadShopList();
+}
+
+async function selectShop(id, name, li) {
+  selectedShop = id;
+  document.querySelectorAll('#shop-list li').forEach(el => el.classList.remove('active'));
+  li.classList.add('active');
+  const branchName = document.querySelector('#branch-list li.active')?.dataset.name || '';
+  document.getElementById('product-form-title').textContent = branchName + ' > ' + name + ' > 상품 등록';
+  await loadProductList();
+}
+
+async function loadProductList() {
+  if (!selectedBranch || !selectedShop) return;
+  const snap = await getDocs(collection(db, 'branches', selectedBranch, 'shops', selectedShop, 'products'));
+  document.getElementById('product-count').textContent = snap.size + '개';
+  if (!snap.size) { document.getElementById('product-list').innerHTML = '<div class="empty">등록된 상품이 없습니다</div>'; return; }
+  let html = '<table><thead><tr><th>내부 제품명</th><th>기준가</th><th>URL</th><th>삭제</th></tr></thead><tbody>';
+  snap.forEach(d => {
+    const p = d.data();
+    html += '<tr><td style="max-width:220px;word-break:break-word;">' + (p.internalName||'-') + '</td>' +
+      '<td>' + (p.basePrice ? Number(p.basePrice).toLocaleString() + '원' : '-') + '</td>' +
+      '<td><a href="' + p.url + '" target="_blank" style="font-size:13px;">스토어 보기</a></td>' +
+      '<td><button onclick="deleteProduct(\'' + d.id + '\')" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;color:var(--danger);font-size:12px;">삭제</button></td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('product-list').innerHTML = html;
+}
+
+window.addProduct = async function() {
+  if (!selectedBranch || !selectedShop) { alert('지사와 샵을 먼저 선택해주세요'); return; }
+  const internalName = document.getElementById('prod-name').value.trim();
+  const basePrice = document.getElementById('prod-price').value.trim();
+  const url = document.getElementById('prod-url').value.trim();
+  if (!internalName || !basePrice || !url) { alert('모든 항목을 입력해주세요'); return; }
+  await addDoc(collection(db, 'branches', selectedBranch, 'shops', selectedShop, 'products'), {
+    internalName, basePrice: Number(basePrice), url,
+    status: '정상', currentPrice: null, checkedAt: null,
+    createdAt: serverTimestamp()
+  });
+  document.getElementById('prod-name').value = '';
+  document.getElementById('prod-price').value = '';
+  document.getElementById('prod-url').value = '';
+  await loadProductList();
+}
+
+window.deleteProduct = async function(id) {
+  if (!confirm('상품을 삭제할까요?')) return;
+  await deleteDoc(doc(db, 'branches', selectedBranch, 'shops', selectedShop, 'products', id));
+  await loadProductList();
+}
+
+// ========================
+// 엑셀 업로드
+// ========================
+window.handleExcelUpload = async function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs');
+  const data = await file.arrayBuffer();
+  const wb = XLSX.read(data);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+  let count = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const [branchName, shopName, internalName, basePrice, url] = rows[i];
+    if (!branchName || !shopName || !url) continue;
+
+    // 지사 찾거나 생성
+    let branchId = null;
+    const bSnap = await getDocs(query(collection(db, 'branches'), where('name', '==', String(branchName))));
+    if (bSnap.empty) {
+      const bRef = await addDoc(collection(db, 'branches'), { name: String(branchName), createdAt: serverTimestamp() });
+      branchId = bRef.id;
+    } else { branchId = bSnap.docs[0].id; }
+
+    // 샵 찾거나 생성
+    let shopId = null;
+    const sSnap = await getDocs(query(collection(db, 'branches', branchId, 'shops'), where('name', '==', String(shopName))));
+    if (sSnap.empty) {
+      const sRef = await addDoc(collection(db, 'branches', branchId, 'shops'), { name: String(shopName), createdAt: serverTimestamp() });
+      shopId = sRef.id;
+    } else { shopId = sSnap.docs[0].id; }
+
+    // 상품 추가
+    await addDoc(collection(db, 'branches', branchId, 'shops', shopId, 'products'), {
+      internalName: String(internalName || ''), basePrice: Number(basePrice) || 0, url: String(url),
+      status: '정상', currentPrice: null, checkedAt: null, createdAt: serverTimestamp()
+    });
+    count++;
+  }
+  alert(count + '개 상품이 등록됐어요!');
+  await loadBranchList();
+  await loadDashboard();
+  event.target.value = '';
+}
+
+window.downloadTemplate = function() {
+  const csv = '\uFEFF지사명,샵명,내부제품명,기준가,스토어URL\n베니몰,베니몰,리블 히아루로닉 럭셔리 앰플 250ml,92400,https://smartstore.naver.com/...\nJH코스메틱,라퓨어스킨케어,리블 아쿠보 텐션크림 100ml,112800,https://smartstore.naver.com/...';
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '인증점_등록_양식.csv'; a.click();
+}
+
+// 초기 연락 이력 렌더
+renderContactTab();
 </script>
 </body>
 </html>
