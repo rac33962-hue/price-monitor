@@ -224,6 +224,22 @@
         </div>
 
         <div id="shop-detail-view" style="display:none;">
+          <div class="section" id="shop-memo-box" style="margin-bottom:16px;">
+            <div class="section-header">
+              <h2>📝 샵 메모</h2>
+              <button id="shop-memo-edit-btn" onclick="toggleShopMemoEdit()" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:12px;">수정</button>
+            </div>
+            <div style="padding:14px 16px;">
+              <div id="shop-memo-view" style="white-space:pre-wrap;font-size:13px;color:var(--text);min-height:20px;">-</div>
+              <div id="shop-memo-edit" style="display:none;">
+                <textarea id="shop-memo-textarea" placeholder="사업자번호, 사업장주소, 담당자 연락처, 이슈사항 등을 메모해두세요" style="width:100%;min-height:100px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+                <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
+                  <button onclick="toggleShopMemoEdit()" style="padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:13px;">취소</button>
+                  <button onclick="saveShopMemo()" style="padding:6px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-size:13px;">저장</button>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="section">
             <div class="section-header"><h2>상품 현황</h2><span class="count" id="detail-product-count"></span></div>
             <div id="detail-product-table"></div>
@@ -600,7 +616,7 @@ async function loadDashboard() {
       for (const sDoc of shopsSnap.docs) {
         const prodsSnap = await db.collection('branches').doc(bDoc.id).collection('shops').doc(sDoc.id).collection('products').get();
         prodsSnap.forEach(pDoc => {
-          const p = { id: pDoc.id, ...pDoc.data(), branchId: bDoc.id, branchName: branch.name, shopName: sDoc.data().name };
+          const p = { id: pDoc.id, ...pDoc.data(), branchId: bDoc.id, branchName: branch.name, shopName: sDoc.data().name, shopId: sDoc.id };
           branch.products.push(p);
           if (p.status === '위반') branch.violations.push(p);
         });
@@ -642,10 +658,13 @@ function renderDashboard(branches) {
 
 let currentDetailBranch = null;
 let currentDetailShop = null; // null이면 샵 그리드, 값 있으면 해당 샵 상품 목록
+let currentDetailShopId = null;
+let currentShopMemo = '';
 
 function showBranchDetail(branch) {
   currentDetailBranch = branch;
   currentDetailShop = null;
+  currentDetailShopId = null;
   document.getElementById('branch-list-view').style.display = 'none';
   document.getElementById('detail-view').style.display = 'block';
   renderDetailView();
@@ -685,10 +704,16 @@ function renderDetailView() {
   document.getElementById('memo-edit-btn').textContent = '수정';
 
   if (currentDetailShop) {
+    document.getElementById('branch-memo-box').style.display = 'none';
     document.getElementById('shop-grid-view').style.display = 'none';
     document.getElementById('shop-detail-view').style.display = 'block';
+    document.getElementById('shop-memo-view').textContent = currentShopMemo && currentShopMemo.trim() ? currentShopMemo : '아직 메모가 없어요. "수정"을 눌러 사업자번호, 사업장주소, 담당자 연락처 등을 남겨보세요.';
+    document.getElementById('shop-memo-view').style.display = 'block';
+    document.getElementById('shop-memo-edit').style.display = 'none';
+    document.getElementById('shop-memo-edit-btn').textContent = '수정';
     renderDetailProductTable(scopedProducts);
   } else {
+    document.getElementById('branch-memo-box').style.display = 'block';
     document.getElementById('shop-grid-view').style.display = 'block';
     document.getElementById('shop-detail-view').style.display = 'none';
     renderShopGrid(branch);
@@ -725,6 +750,36 @@ async function saveBranchMemo() {
   }
 }
 
+function toggleShopMemoEdit() {
+  const viewEl = document.getElementById('shop-memo-view');
+  const editEl = document.getElementById('shop-memo-edit');
+  const btn = document.getElementById('shop-memo-edit-btn');
+  const isEditing = editEl.style.display !== 'none';
+  if (isEditing) {
+    viewEl.style.display = 'block';
+    editEl.style.display = 'none';
+    btn.textContent = '수정';
+  } else {
+    document.getElementById('shop-memo-textarea').value = currentShopMemo || '';
+    viewEl.style.display = 'none';
+    editEl.style.display = 'block';
+    btn.textContent = '보기';
+    document.getElementById('shop-memo-textarea').focus();
+  }
+}
+
+async function saveShopMemo() {
+  if (!currentDetailBranch || !currentDetailShopId) { alert('샵 정보를 찾을 수 없어요'); return; }
+  const memo = document.getElementById('shop-memo-textarea').value;
+  try {
+    await db.collection('branches').doc(currentDetailBranch.id).collection('shops').doc(currentDetailShopId).update({ memo });
+    currentShopMemo = memo;
+    renderDetailView();
+  } catch (e) {
+    alert('메모 저장 실패: ' + e.message);
+  }
+}
+
 function renderShopGrid(branch) {
   const shopNames = [...new Set(branch.products.map(p => p.shopName || '미지정'))].sort();
   const grid = document.getElementById('shop-grid');
@@ -745,13 +800,23 @@ function renderShopGrid(branch) {
   grid.innerHTML = html;
 }
 
-function selectDetailShop(name) {
+async function selectDetailShop(name) {
   currentDetailShop = name;
+  const match = currentDetailBranch.products.find(p => (p.shopName||'미지정') === name && p.shopId);
+  currentDetailShopId = match ? match.shopId : null;
+  currentShopMemo = '';
+  if (currentDetailShopId) {
+    try {
+      const sDoc = await db.collection('branches').doc(currentDetailBranch.id).collection('shops').doc(currentDetailShopId).get();
+      currentShopMemo = (sDoc.exists && sDoc.data().memo) || '';
+    } catch (e) { console.error(e); }
+  }
   renderDetailView();
 }
 
 function goBackToShopGrid() {
   currentDetailShop = null;
+  currentDetailShopId = null;
   renderDetailView();
 }
 
@@ -782,7 +847,7 @@ async function checkBranchNow() {
     for (const sDoc of shopsSnap.docs) {
       const prodsSnap = await db.collection('branches').doc(bId).collection('shops').doc(sDoc.id).collection('products').get();
       prodsSnap.forEach(pDoc => {
-        const p = { id: pDoc.id, ...pDoc.data(), branchId: bId, branchName: branch.name, shopName: sDoc.data().name };
+        const p = { id: pDoc.id, ...pDoc.data(), branchId: bId, branchName: branch.name, shopName: sDoc.data().name, shopId: sDoc.id };
         branch.products.push(p);
         if (p.status === '위반') branch.violations.push(p);
       });
