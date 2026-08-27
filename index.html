@@ -7,6 +7,7 @@
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root { --bg: #f8f9fa; --surface: #ffffff; --border: #e9ecef; --text: #212529; --text-muted: #6c757d; --primary: #1a73e8; --danger: #d93025; --danger-bg: #fce8e6; --success: #1e8e3e; --success-bg: #e6f4ea; --warning: #f29900; --warning-bg: #fef7e0; --radius: 12px; --radius-sm: 8px; }
@@ -228,8 +229,20 @@
     </div>
 
     <div class="tab-content" id="tab-register">
+      <div class="excel-upload" style="border-color:var(--primary);">
+        <h3>📊 지사 전체 엑셀 업로드 (시트별 샵 + 마스터 자동 매칭)</h3>
+        <p>구글시트에서 다운받은 xlsx를 그대로 올리세요. <b>시트(탭) 하나가 샵 하나</b>로 등록되고, 상품명은 <b>상품 마스터와 자동으로 매칭</b>돼서 정확한 내부제품명 + 기준가로 들어가요.</p>
+        <div class="form-group"><label>지사명</label><input type="text" id="bulk-branch-name" placeholder="예: 라인코스메틱" /></div>
+        <div class="upload-area" onclick="document.getElementById('bulk-xlsx-input').click()">
+          <input type="file" id="bulk-xlsx-input" accept=".xlsx,.xls" onchange="handleBulkXlsxUpload(event)" />
+          <div class="upload-icon">📁</div>
+          <p>엑셀(.xlsx) 파일을 클릭해서 업로드하세요</p>
+          <span>지원 형식: .xlsx, .xls (시트별로 URL/기준가/상품명 컬럼 포함)</span>
+        </div>
+        <div id="bulk-upload-result"></div>
+      </div>
       <div class="excel-upload">
-        <h3>📊 엑셀로 한 번에 등록</h3>
+        <h3>📄 엑셀로 한 번에 등록 (단순 형식)</h3>
         <p>지사명 / 샵명 / 내부제품명 / 기준가 / 스토어URL 형식의 엑셀 파일을 업로드하면 한 번에 등록돼요</p>
         <div class="upload-area" onclick="document.getElementById('excel-input').click()">
           <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" onchange="handleExcelUpload(event)" />
@@ -746,6 +759,137 @@ async function deleteProduct(id) {
 }
 
 // CSV 업로드
+// ========================
+// 지사 전체 엑셀 업로드 (시트별 샵 + 상품 마스터 자동 매칭)
+// ========================
+function normalizeProductName(s) {
+  return (s || '')
+    .split(':')[0]
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/[^\uac00-\ud7a3a-zA-Z0-9]/g, '')
+    .toLowerCase();
+}
+
+function similarityRatio(a, b) {
+  const m = a.length, n = b.length;
+  if (!m || !n) return 0;
+  const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  return (2 * dp[m][n]) / (m + n);
+}
+
+function matchProductMaster(rawName) {
+  const norm = normalizeProductName(rawName);
+  if (!norm || !productMaster.length) return null;
+  let best = null, bestScore = 0;
+  productMaster.forEach(p => {
+    const mnorm = normalizeProductName(p.internalName);
+    if (!mnorm) return;
+    let score;
+    if (norm.includes(mnorm) || mnorm.includes(norm)) {
+      score = 0.6 + Math.min(mnorm.length, norm.length) / Math.max(mnorm.length, norm.length) * 0.4;
+    } else {
+      score = similarityRatio(norm, mnorm);
+    }
+    if (score > bestScore) { bestScore = score; best = p; }
+  });
+  return bestScore >= 0.55 ? best : null;
+}
+
+async function findOrCreateBranch(branchName) {
+  const bSnap = await db.collection('branches').where('name', '==', branchName).get();
+  if (!bSnap.empty) return bSnap.docs[0].id;
+  const bRef = await db.collection('branches').add({ name: branchName, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  return bRef.id;
+}
+
+async function findOrCreateShop(branchId, shopName) {
+  const sSnap = await db.collection('branches').doc(branchId).collection('shops').where('name', '==', shopName).get();
+  if (!sSnap.empty) return sSnap.docs[0].id;
+  const sRef = await db.collection('branches').doc(branchId).collection('shops').add({ name: shopName, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  return sRef.id;
+}
+
+async function handleBulkXlsxUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const branchName = document.getElementById('bulk-branch-name').value.trim();
+  const resultEl = document.getElementById('bulk-upload-result');
+  if (!branchName) { alert('지사명을 먼저 입력해주세요!'); event.target.value = ''; return; }
+  if (!productMaster.length) { alert('상품 마스터에 등록된 상품이 없어요. 먼저 "상품 마스터" 탭에서 브랜드별 상품을 등록해주세요!'); event.target.value = ''; return; }
+
+  resultEl.innerHTML = '<div class="loading"><span class="spinner"></span>처리 중...</div>';
+
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const branchId = await findOrCreateBranch(branchName);
+
+    let totalRows = 0, matchedCount = 0, unmatchedList = [], shopCount = 0;
+
+    for (const sheetName of wb.SheetNames) {
+      const sheet = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      if (!rows.length) continue;
+
+      const headers = rows[0].map(h => String(h || ''));
+      let urlIdx = headers.findIndex(h => h.includes('URL'));
+      let nameIdx = headers.findIndex(h => h.includes('상품명'));
+      if (urlIdx < 0) urlIdx = 0;
+      if (nameIdx < 0) nameIdx = 4;
+
+      const shopId = await findOrCreateShop(branchId, sheetName);
+      shopCount++;
+
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const url = String(row[urlIdx] || '').trim();
+        const rawName = String(row[nameIdx] || '').trim();
+        if (!url || !url.startsWith('http')) continue;
+        totalRows++;
+
+        const matched = matchProductMaster(rawName);
+        let internalName, basePrice;
+        if (matched) {
+          matchedCount++;
+          internalName = matched.internalName;
+          basePrice = matched.basePrice || 0;
+        } else {
+          unmatchedList.push({ shop: sheetName, rawName });
+          internalName = rawName.split(':')[0].trim();
+          basePrice = 0;
+        }
+
+        await db.collection('branches').doc(branchId).collection('shops').doc(shopId).collection('products').add({
+          internalName, basePrice, url, status: '정상', currentPrice: null, checkedAt: null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    }
+
+    let html = '<div style="margin-top:16px;padding:16px;background:var(--success-bg);border-radius:8px;">'
+      + '<b>✅ 완료!</b> 샵 ' + shopCount + '개, 상품 ' + totalRows + '개 등록 (마스터 매칭 ' + matchedCount + '개 / 미매칭 ' + unmatchedList.length + '개)</div>';
+
+    if (unmatchedList.length) {
+      html += '<div style="margin-top:12px;padding:16px;background:var(--warning-bg);border-radius:8px;max-height:300px;overflow-y:auto;">'
+        + '<b>⚠️ 마스터에서 못 찾은 상품 (기준가 0으로 등록됨 — 나중에 직접 수정 필요)</b><ul style="margin-top:8px;padding-left:20px;">'
+        + unmatchedList.map(u => '<li style="margin-bottom:4px;font-size:13px;">[' + u.shop + '] ' + u.rawName + '</li>').join('')
+        + '</ul></div>';
+    }
+
+    resultEl.innerHTML = html;
+    await loadBranchList();
+    await loadDashboard();
+    event.target.value = '';
+  } catch (e) {
+    resultEl.innerHTML = '<div style="color:var(--danger);margin-top:12px;">오류: ' + e.message + '</div>';
+  }
+}
+
 async function handleExcelUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
