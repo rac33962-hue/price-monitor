@@ -728,17 +728,50 @@ async function selectShop(id, name, li) {
   await loadProductList();
 }
 
+let editingProductId = null;
+
 async function loadProductList() {
   if (!selectedBranch || !selectedShop) return;
   const snap = await db.collection('branches').doc(selectedBranch).collection('shops').doc(selectedShop).collection('products').get();
   document.getElementById('product-count').textContent = snap.size + '개';
-  if (!snap.size) { document.getElementById('product-list').innerHTML = '<div class="empty">등록된 상품이 없습니다</div>'; return; }
-  let html = '<table><thead><tr><th>내부 제품명</th><th>기준가</th><th>URL</th><th>삭제</th></tr></thead><tbody>';
+  if (!snap.size) { document.getElementById('product-list').innerHTML = '<div class="empty">등록된 상품이 없습니다</div>'; editingProductId = null; return; }
+  let html = '<table><thead><tr><th>내부 제품명</th><th>기준가</th><th>URL</th><th>관리</th></tr></thead><tbody>';
   snap.forEach(d => {
     const p = d.data();
-    html += '<tr><td style="max-width:220px;word-break:break-word;">' + (p.internalName||'-') + '</td><td>' + (p.basePrice ? Number(p.basePrice).toLocaleString()+'원' : '-') + '</td><td><a href="' + p.url + '" target="_blank" style="font-size:13px;">스토어 보기</a></td><td><button onclick="deleteProduct(\'' + d.id + '\')" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;color:var(--danger);font-size:12px;">삭제</button></td></tr>';
+    if (d.id === editingProductId) {
+      html += '<tr>'
+        + '<td><input type="text" id="edit-name-' + d.id + '" value="' + (p.internalName||'').replace(/"/g,'&quot;') + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;" /></td>'
+        + '<td><input type="number" id="edit-price-' + d.id + '" value="' + (p.basePrice||0) + '" style="width:100px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;" /></td>'
+        + '<td><input type="text" id="edit-url-' + d.id + '" value="' + (p.url||'').replace(/"/g,'&quot;') + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;" /></td>'
+        + '<td style="white-space:nowrap;"><button onclick="saveEditProduct(\'' + d.id + '\')" style="padding:4px 8px;border:1px solid var(--primary);border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-size:12px;margin-right:4px;">저장</button>'
+        + '<button onclick="cancelEditProduct()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:12px;">취소</button></td></tr>';
+    } else {
+      html += '<tr><td style="max-width:220px;word-break:break-word;">' + (p.internalName||'-') + '</td><td>' + (p.basePrice ? Number(p.basePrice).toLocaleString()+'원' : '-') + '</td><td><a href="' + p.url + '" target="_blank" style="font-size:13px;">스토어 보기</a></td>'
+        + '<td style="white-space:nowrap;"><button onclick="startEditProduct(\'' + d.id + '\')" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:12px;margin-right:4px;">수정</button>'
+        + '<button onclick="deleteProduct(\'' + d.id + '\')" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;color:var(--danger);font-size:12px;">삭제</button></td></tr>';
+    }
   });
   document.getElementById('product-list').innerHTML = html + '</tbody></table>';
+}
+
+function startEditProduct(id) {
+  editingProductId = id;
+  loadProductList();
+}
+
+function cancelEditProduct() {
+  editingProductId = null;
+  loadProductList();
+}
+
+async function saveEditProduct(id) {
+  const internalName = document.getElementById('edit-name-' + id).value.trim();
+  const basePrice = Number(document.getElementById('edit-price-' + id).value) || 0;
+  const url = document.getElementById('edit-url-' + id).value.trim();
+  if (!internalName || !url) { alert('내부 제품명과 URL은 비워둘 수 없어요'); return; }
+  await db.collection('branches').doc(selectedBranch).collection('shops').doc(selectedShop).collection('products').doc(id).update({ internalName, basePrice, url });
+  editingProductId = null;
+  await loadProductList();
 }
 
 async function addProduct() {
