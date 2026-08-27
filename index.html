@@ -201,6 +201,23 @@
           <div class="summary-card"><div class="label">마지막 점검</div><div class="value" style="font-size:15px;padding-top:6px;" id="detail-stat-checked">-</div></div>
         </div>
 
+        <div class="section" id="branch-memo-box" style="margin-bottom:16px;">
+          <div class="section-header">
+            <h2>📝 지사 메모</h2>
+            <button id="memo-edit-btn" onclick="toggleMemoEdit()" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:12px;">수정</button>
+          </div>
+          <div style="padding:14px 16px;">
+            <div id="memo-view" style="white-space:pre-wrap;font-size:13px;color:var(--text);min-height:20px;">-</div>
+            <div id="memo-edit" style="display:none;">
+              <textarea id="memo-textarea" placeholder="담당자 연락처, 이슈사항 등을 메모해두세요" style="width:100%;min-height:100px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
+                <button onclick="toggleMemoEdit()" style="padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:13px;">취소</button>
+                <button onclick="saveBranchMemo()" style="padding:6px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-size:13px;">저장</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div id="shop-grid-view">
           <div class="section-title">샵 현황 — 클릭하면 상세 보기</div>
           <div class="branch-grid" id="shop-grid"></div>
@@ -662,6 +679,11 @@ function renderDetailView() {
     document.getElementById('detail-stat-checked').textContent = '-';
   }
 
+  document.getElementById('memo-view').textContent = branch.memo && branch.memo.trim() ? branch.memo : '아직 메모가 없어요. "수정"을 눌러 담당자 연락처나 이슈사항을 남겨보세요.';
+  document.getElementById('memo-view').style.display = 'block';
+  document.getElementById('memo-edit').style.display = 'none';
+  document.getElementById('memo-edit-btn').textContent = '수정';
+
   if (currentDetailShop) {
     document.getElementById('shop-grid-view').style.display = 'none';
     document.getElementById('shop-detail-view').style.display = 'block';
@@ -670,6 +692,36 @@ function renderDetailView() {
     document.getElementById('shop-grid-view').style.display = 'block';
     document.getElementById('shop-detail-view').style.display = 'none';
     renderShopGrid(branch);
+  }
+}
+
+function toggleMemoEdit() {
+  const viewEl = document.getElementById('memo-view');
+  const editEl = document.getElementById('memo-edit');
+  const btn = document.getElementById('memo-edit-btn');
+  const isEditing = editEl.style.display !== 'none';
+  if (isEditing) {
+    viewEl.style.display = 'block';
+    editEl.style.display = 'none';
+    btn.textContent = '수정';
+  } else {
+    document.getElementById('memo-textarea').value = (currentDetailBranch && currentDetailBranch.memo) || '';
+    viewEl.style.display = 'none';
+    editEl.style.display = 'block';
+    btn.textContent = '보기';
+    document.getElementById('memo-textarea').focus();
+  }
+}
+
+async function saveBranchMemo() {
+  if (!currentDetailBranch) return;
+  const memo = document.getElementById('memo-textarea').value;
+  try {
+    await db.collection('branches').doc(currentDetailBranch.id).update({ memo });
+    currentDetailBranch.memo = memo;
+    renderDetailView();
+  } catch (e) {
+    alert('메모 저장 실패: ' + e.message);
   }
 }
 
@@ -725,7 +777,7 @@ async function checkBranchNow() {
   btn.disabled = true;
   try {
     const bId = currentDetailBranch.id;
-    const branch = { id: bId, name: currentDetailBranch.name, products: [], violations: [] };
+    const branch = { id: bId, name: currentDetailBranch.name, memo: currentDetailBranch.memo, products: [], violations: [] };
     const shopsSnap = await db.collection('branches').doc(bId).collection('shops').get();
     for (const sDoc of shopsSnap.docs) {
       const prodsSnap = await db.collection('branches').doc(bId).collection('shops').doc(sDoc.id).collection('products').get();
