@@ -662,6 +662,8 @@ async function loadBranchList() {
 async function addBranch() {
   const name = document.getElementById('new-branch-name').value.trim();
   if (!name) return;
+  const snap = await db.collection('branches').get();
+  if (snap.docs.some(d => (d.data().name || '').trim() === name)) { alert('이미 "' + name + '" 지사가 등록되어 있어요.'); return; }
   await db.collection('branches').add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   document.getElementById('new-branch-name').value = '';
   await loadBranchList();
@@ -702,6 +704,8 @@ async function addShop() {
   if (!selectedBranch) { alert('지사를 먼저 선택해주세요'); return; }
   const name = document.getElementById('new-shop-name').value.trim();
   if (!name) return;
+  const snap = await db.collection('branches').doc(selectedBranch).collection('shops').get();
+  if (snap.docs.some(d => (d.data().name || '').trim() === name)) { alert('이미 "' + name + '" 샵이 등록되어 있어요.'); return; }
   await db.collection('branches').doc(selectedBranch).collection('shops').add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   document.getElementById('new-shop-name').value = '';
   await loadShopList();
@@ -743,9 +747,8 @@ async function addProduct() {
   const basePrice = document.getElementById('prod-price').value.trim();
   const url = document.getElementById('prod-url').value.trim();
   if (!internalName || !basePrice || !url) { alert('모든 항목을 입력해주세요'); return; }
-  await db.collection('branches').doc(selectedBranch).collection('shops').doc(selectedShop).collection('products').add({
-    internalName, basePrice: Number(basePrice), url, status: '정상', currentPrice: null, checkedAt: null, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
+  const result = await upsertProduct(selectedBranch, selectedShop, internalName, Number(basePrice), url);
+  if (result === 'updated') alert('이미 등록된 URL이라 기존 상품 정보를 업데이트했어요.');
   document.getElementById('prod-name').value = '';
   document.getElementById('prod-price').value = '';
   document.getElementById('prod-url').value = '';
@@ -800,18 +803,51 @@ function matchProductMaster(rawName) {
   return bestScore >= 0.55 ? best : null;
 }
 
-async function findOrCreateBranch(branchName) {
-  const bSnap = await db.collection('branches').where('name', '==', branchName).get();
-  if (!bSnap.empty) return bSnap.docs[0].id;
+// ========================
+// 중복 방지 헬퍼 (지사/샵 이름 trim + 캐싱, 상품은 URL 기준 upsert)
+// ========================
+let _branchCache = {};
+let _shopCache = {};
+
+async function findOrCreateBranch(branchNameRaw) {
+  const branchName = (branchNameRaw || '').trim();
+  if (_branchCache[branchName]) return _branchCache[branchName];
+  const bSnap = await db.collection('branches').get();
+  let found = bSnap.docs.find(d => (d.data().name || '').trim() === branchName);
+  if (found) { _branchCache[branchName] = found.id; return found.id; }
   const bRef = await db.collection('branches').add({ name: branchName, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  _branchCache[branchName] = bRef.id;
   return bRef.id;
 }
 
-async function findOrCreateShop(branchId, shopName) {
-  const sSnap = await db.collection('branches').doc(branchId).collection('shops').where('name', '==', shopName).get();
-  if (!sSnap.empty) return sSnap.docs[0].id;
+async function findOrCreateShop(branchId, shopNameRaw) {
+  const shopName = (shopNameRaw || '').trim();
+  const cacheKey = branchId + '::' + shopName;
+  if (_shopCache[cacheKey]) return _shopCache[cacheKey];
+  const sSnap = await db.collection('branches').doc(branchId).collection('shops').get();
+  let found = sSnap.docs.find(d => (d.data().name || '').trim() === shopName);
+  if (found) { _shopCache[cacheKey] = found.id; return found.id; }
   const sRef = await db.collection('branches').doc(branchId).collection('shops').add({ name: shopName, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  _shopCache[cacheKey] = sRef.id;
   return sRef.id;
+}
+
+// URL이 이미 그 샵에 등록되어 있으면 내부제품명/기준가만 업데이트, 없으면 새로 추가
+// 반환값: 'created' | 'updated'
+async function upsertProduct(branchId, shopId, internalName, basePrice, url) {
+  const cleanUrl = (url || '').trim();
+  const existing = await db.collection('branches').doc(branchId).collection('shops').doc(shopId)
+    .collection('products').where('url', '==', cleanUrl).get();
+  if (!existing.empty) {
+    const docRef = existing.docs[0].ref;
+    await docRef.update({ internalName: internalName || existing.docs[0].data().internalName, basePrice });
+    return 'updated';
+  }
+  await db.collection('branches').doc(branchId).collection('shops').doc(shopId).collection('products').add({
+    internalName: internalName || '', basePrice, url: cleanUrl, status: '정상', currentPrice: null, checkedAt: null,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  return 'created';
 }
 
 async function handleBulkXlsxUpload(event) {
@@ -823,13 +859,15 @@ async function handleBulkXlsxUpload(event) {
   if (!productMaster.length) { alert('상품 마스터에 등록된 상품이 없어요. 먼저 "상품 마스터" 탭에서 브랜드별 상품을 등록해주세요!'); event.target.value = ''; return; }
 
   resultEl.innerHTML = '<div class="loading"><span class="spinner"></span>처리 중...</div>';
+  _branchCache = {}; _shopCache = {};
 
   try {
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array' });
     const branchId = await findOrCreateBranch(branchName);
 
-    let totalRows = 0, matchedCount = 0, unmatchedList = [], shopCount = 0;
+    let totalRows = 0, matchedCount = 0, unmatchedList = [], shopCount = 0, createdCount = 0, updatedCount = 0;
+    const seenShopNames = new Set();
 
     for (const sheetName of wb.SheetNames) {
       const sheet = wb.Sheets[sheetName];
@@ -842,8 +880,9 @@ async function handleBulkXlsxUpload(event) {
       if (urlIdx < 0) urlIdx = 0;
       if (nameIdx < 0) nameIdx = 4;
 
-      const shopId = await findOrCreateShop(branchId, sheetName);
-      shopCount++;
+      const trimmedShopName = sheetName.trim();
+      const shopId = await findOrCreateShop(branchId, trimmedShopName);
+      if (!seenShopNames.has(trimmedShopName)) { seenShopNames.add(trimmedShopName); shopCount++; }
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
@@ -859,20 +898,18 @@ async function handleBulkXlsxUpload(event) {
           internalName = matched.internalName;
           basePrice = matched.basePrice || 0;
         } else {
-          unmatchedList.push({ shop: sheetName, rawName });
+          unmatchedList.push({ shop: trimmedShopName, rawName });
           internalName = rawName.split(':')[0].trim();
           basePrice = 0;
         }
 
-        await db.collection('branches').doc(branchId).collection('shops').doc(shopId).collection('products').add({
-          internalName, basePrice, url, status: '정상', currentPrice: null, checkedAt: null,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        const result = await upsertProduct(branchId, shopId, internalName, basePrice, url);
+        if (result === 'created') createdCount++; else updatedCount++;
       }
     }
 
     let html = '<div style="margin-top:16px;padding:16px;background:var(--success-bg);border-radius:8px;">'
-      + '<b>✅ 완료!</b> 샵 ' + shopCount + '개, 상품 ' + totalRows + '개 등록 (마스터 매칭 ' + matchedCount + '개 / 미매칭 ' + unmatchedList.length + '개)</div>';
+      + '<b>✅ 완료!</b> 샵 ' + shopCount + '개, 총 ' + totalRows + '개 처리 (신규 ' + createdCount + '개 / 기존 업데이트 ' + updatedCount + '개, 마스터 매칭 ' + matchedCount + '개 / 미매칭 ' + unmatchedList.length + '개)</div>';
 
     if (unmatchedList.length) {
       html += '<div style="margin-top:12px;padding:16px;background:var(--warning-bg);border-radius:8px;max-height:300px;overflow-y:auto;">'
@@ -895,7 +932,8 @@ async function handleExcelUpload(event) {
   if (!file) return;
   const text = await file.text();
   const lines = text.split('\n').map(l => l.replace(/\r$/, '')).filter(l => l.trim());
-  let count = 0;
+  _branchCache = {}; _shopCache = {};
+  let createdCount = 0, updatedCount = 0;
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
     const idx1 = line.indexOf(',');
@@ -912,18 +950,12 @@ async function handleExcelUpload(event) {
     const url = rest.slice(httpIdx).trim().replace(/^"|"$/g, '');
     const basePrice = parseInt(priceRaw.replace(/[^\d]/g, ''), 10) || 0;
     if (!branchName || !shopName || !url) continue;
-    let branchId = null;
-    const bSnap = await db.collection('branches').where('name', '==', branchName).get();
-    if (bSnap.empty) { const bRef = await db.collection('branches').add({ name: branchName, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); branchId = bRef.id; }
-    else { branchId = bSnap.docs[0].id; }
-    let shopId = null;
-    const sSnap = await db.collection('branches').doc(branchId).collection('shops').where('name', '==', shopName).get();
-    if (sSnap.empty) { const sRef = await db.collection('branches').doc(branchId).collection('shops').add({ name: shopName, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); shopId = sRef.id; }
-    else { shopId = sSnap.docs[0].id; }
-    await db.collection('branches').doc(branchId).collection('shops').doc(shopId).collection('products').add({ internalName: internalName||'', basePrice, url, status: '정상', currentPrice: null, checkedAt: null, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-    count++;
+    const branchId = await findOrCreateBranch(branchName);
+    const shopId = await findOrCreateShop(branchId, shopName);
+    const result = await upsertProduct(branchId, shopId, internalName, basePrice, url);
+    if (result === 'created') createdCount++; else updatedCount++;
   }
-  alert(count + '개 상품이 등록됐어요!');
+  alert('신규 ' + createdCount + '개 등록, 기존 ' + updatedCount + '개 업데이트됐어요! (중복 URL은 자동으로 덮어썼어요)');
   await loadBranchList();
   await loadDashboard();
   event.target.value = '';
