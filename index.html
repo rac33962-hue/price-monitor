@@ -159,6 +159,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
         새로고침
       </button>
+      <button class="btn-logout" onclick="openPasswordModal()" style="background:white;color:var(--text);">비밀번호 변경</button>
       <button class="btn-logout" onclick="doLogout()">로그아웃</button>
     </div>
   </header>
@@ -368,6 +369,21 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="password-modal">
+  <div class="modal">
+    <h3>비밀번호 변경</h3>
+    <p id="password-modal-user"></p>
+    <div class="form-group"><label>현재 비밀번호</label><input type="password" id="pw-current" /></div>
+    <div class="form-group"><label>새 비밀번호</label><input type="password" id="pw-new" /></div>
+    <div class="form-group"><label>새 비밀번호 확인</label><input type="password" id="pw-confirm" /></div>
+    <div class="login-error" id="password-error" style="display:none;">현재 비밀번호가 올바르지 않거나 입력값이 맞지 않아요</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closePasswordModal()">취소</button>
+      <button class="btn-save" onclick="changePassword()">변경하기</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // Firebase 초기화
 const firebaseConfig = {
@@ -484,6 +500,48 @@ async function deleteUser(id) {
   if (!confirm('"' + id + '" 계정을 삭제할까요?')) return;
   await db.collection('users').doc(id).delete();
   await loadUserList();
+}
+
+// ========================
+// 비밀번호 변경 (본인 계정)
+// ========================
+function openPasswordModal() {
+  document.getElementById('password-modal-user').textContent = '현재 로그인: ' + (currentUsername || '');
+  document.getElementById('pw-current').value = '';
+  document.getElementById('pw-new').value = '';
+  document.getElementById('pw-confirm').value = '';
+  document.getElementById('password-error').style.display = 'none';
+  document.getElementById('password-modal').classList.add('open');
+}
+
+function closePasswordModal() {
+  document.getElementById('password-modal').classList.remove('open');
+}
+
+async function changePassword() {
+  const current = document.getElementById('pw-current').value;
+  const next = document.getElementById('pw-new').value;
+  const confirmPw = document.getElementById('pw-confirm').value;
+  const errorEl = document.getElementById('password-error');
+
+  if (!current || !next || !confirmPw) { errorEl.textContent = '모든 항목을 입력해주세요'; errorEl.style.display = 'block'; return; }
+  if (next !== confirmPw) { errorEl.textContent = '새 비밀번호가 서로 일치하지 않아요'; errorEl.style.display = 'block'; return; }
+  if (next.length < 4) { errorEl.textContent = '비밀번호는 4자 이상으로 설정해주세요'; errorEl.style.display = 'block'; return; }
+
+  try {
+    const doc = await db.collection('users').doc(currentUsername).get();
+    if (!doc.exists || doc.data().password !== current) {
+      errorEl.textContent = '현재 비밀번호가 올바르지 않아요';
+      errorEl.style.display = 'block';
+      return;
+    }
+    await db.collection('users').doc(currentUsername).update({ password: next });
+    closePasswordModal();
+    alert('비밀번호가 변경됐어요! 다음 로그인부터 새 비밀번호를 사용해주세요.');
+  } catch (e) {
+    errorEl.textContent = '오류가 발생했어요: ' + e.message;
+    errorEl.style.display = 'block';
+  }
 }
 
 function switchTab(name, el) {
