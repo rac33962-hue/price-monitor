@@ -417,6 +417,19 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="product-memo-modal">
+  <div class="modal" style="width:520px;max-height:80vh;display:flex;flex-direction:column;">
+    <h3 id="product-memo-title">상품 메모</h3>
+    <p>날짜별로 확인한 내용, 이슈사항을 기록해두세요</p>
+    <div id="product-memo-list" style="flex:1;overflow-y:auto;max-height:280px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;padding:8px;"></div>
+    <textarea id="product-memo-textarea" placeholder="오늘 확인한 내용, 위반 체크, 이슈사항 등을 적어주세요" style="width:100%;min-height:70px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeProductMemoModal()">닫기</button>
+      <button class="btn-save" onclick="addProductMemoNote()">기록 추가</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // Firebase 초기화
 const firebaseConfig = {
@@ -845,9 +858,11 @@ function renderDetailProductTable(products) {
         + '<td style="white-space:nowrap;"><button onclick="saveDetailProductEdit(\'' + p.branchId + '\',\'' + p.shopId + '\',\'' + p.id + '\')" style="padding:4px 8px;border:1px solid var(--primary);border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-size:12px;margin-right:4px;">저장</button>'
         + '<button onclick="cancelDetailProductEdit()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:12px;">취소</button></td></tr>';
     } else {
+      const noteCount = (p.notes || []).length;
       html += '<tr style="' + (iv ? 'background:#fffafa;' : '') + '"><td style="font-size:13px;color:var(--text-muted);">' + (p.shopName||'-') + '</td><td style="max-width:220px;word-break:break-word;font-weight:500;">' + (p.internalName||'-') + '</td><td>' + (p.basePrice ? Number(p.basePrice).toLocaleString()+'원' : '-') + '</td><td style="' + (iv?'color:var(--danger);font-weight:500;':'') + '">' + (p.currentPrice ? Number(p.currentPrice).toLocaleString()+'원' : '-') + '</td><td>' + badge + '</td><td style="font-size:13px;color:var(--text-muted);">' + checked + '</td><td><a href="' + p.url + '" target="_blank" style="font-size:13px;">스토어 보기</a></td>'
         + '<td style="white-space:nowrap;">'
         + '<button onclick="startDetailProductEdit(\'' + p.id + '\')" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:12px;margin-right:4px;">수정</button>'
+        + '<button onclick="openProductMemoModal(\'' + p.branchId + '\',\'' + p.shopId + '\',\'' + p.id + '\')" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:' + (noteCount>0?'#fff8e6':'white') + ';cursor:pointer;font-size:12px;margin-right:4px;">📝 메모' + (noteCount>0 ? ' ('+noteCount+')' : '') + '</button>'
         + (iv ? '<button class="contact-btn" onclick=\'openModal(' + JSON.stringify(p).replace(/'/g,"&#39;") + ')\'>연락하기</button>' : '')
         + '</td></tr>';
     }
@@ -879,6 +894,57 @@ async function saveDetailProductEdit(branchId, shopId, productId) {
     renderDetailView();
   } catch (e) {
     alert('수정 실패: ' + e.message);
+  }
+}
+
+// ========================
+// 상품별 날짜 메모 이력
+// ========================
+let currentMemoProduct = null; // { branchId, shopId, productId }
+
+function renderProductMemoList(notes) {
+  const listEl = document.getElementById('product-memo-list');
+  if (!notes || !notes.length) { listEl.innerHTML = '<div style="padding:10px;color:var(--text-muted);font-size:13px;">아직 기록된 메모가 없어요</div>'; return; }
+  const sorted = [...notes].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  listEl.innerHTML = sorted.map(n =>
+    '<div style="padding:10px;border-bottom:1px solid var(--border);">'
+    + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + (n.date || '') + (n.author ? ' · ' + n.author : '') + '</div>'
+    + '<div style="font-size:13px;white-space:pre-wrap;">' + (n.text || '').replace(/</g,'&lt;') + '</div></div>'
+  ).join('');
+}
+
+async function openProductMemoModal(branchId, shopId, productId) {
+  currentMemoProduct = { branchId, shopId, productId };
+  const p = currentDetailBranch.products.find(x => x.id === productId);
+  document.getElementById('product-memo-title').textContent = '📝 ' + (p ? p.internalName : '상품') + ' 메모';
+  document.getElementById('product-memo-textarea').value = '';
+  renderProductMemoList(p ? p.notes : []);
+  document.getElementById('product-memo-modal').classList.add('open');
+}
+
+function closeProductMemoModal() {
+  document.getElementById('product-memo-modal').classList.remove('open');
+  currentMemoProduct = null;
+}
+
+async function addProductMemoNote() {
+  if (!currentMemoProduct) return;
+  const text = document.getElementById('product-memo-textarea').value.trim();
+  if (!text) { alert('내용을 입력해주세요'); return; }
+  const { branchId, shopId, productId } = currentMemoProduct;
+  const now = new Date();
+  const dateStr = now.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const note = { date: dateStr, text, author: currentUsername || '' };
+  try {
+    await db.collection('branches').doc(branchId).collection('shops').doc(shopId).collection('products').doc(productId)
+      .update({ notes: firebase.firestore.FieldValue.arrayUnion(note) });
+    const p = currentDetailBranch.products.find(x => x.id === productId);
+    if (p) { p.notes = [...(p.notes || []), note]; }
+    document.getElementById('product-memo-textarea').value = '';
+    renderProductMemoList(p ? p.notes : [note]);
+    renderDetailView(); // 목록의 메모 개수 뱃지 갱신
+  } catch (e) {
+    alert('메모 저장 실패: ' + e.message);
   }
 }
 
