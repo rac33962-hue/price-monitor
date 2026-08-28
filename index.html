@@ -665,6 +665,7 @@ function showBranchDetail(branch) {
   currentDetailBranch = branch;
   currentDetailShop = null;
   currentDetailShopId = null;
+  editingDetailProductId = null;
   document.getElementById('branch-list-view').style.display = 'none';
   document.getElementById('detail-view').style.display = 'block';
   renderDetailView();
@@ -817,20 +818,68 @@ async function selectDetailShop(name) {
 function goBackToShopGrid() {
   currentDetailShop = null;
   currentDetailShopId = null;
+  editingDetailProductId = null;
   renderDetailView();
 }
 
+let editingDetailProductId = null;
+
 function renderDetailProductTable(products) {
   document.getElementById('detail-product-count').textContent = products.length + '개 상품';
-  if (!products.length) { document.getElementById('detail-product-table').innerHTML = '<div class="empty">등록된 상품이 없습니다</div>'; return; }
-  let html = '<table><thead><tr><th>샵명</th><th>내부 제품명</th><th>기준가</th><th>현재가</th><th>상태</th><th>마지막 점검</th><th>링크</th><th>연락</th></tr></thead><tbody>';
+  if (!products.length) { document.getElementById('detail-product-table').innerHTML = '<div class="empty">등록된 상품이 없습니다</div>'; editingDetailProductId = null; return; }
+  let html = '<table><thead><tr><th>샵명</th><th>내부 제품명</th><th>기준가</th><th>현재가</th><th>상태</th><th>마지막 점검</th><th>링크</th><th>관리</th></tr></thead><tbody>';
   products.forEach(p => {
     const iv = p.status === '위반';
     const badge = iv ? '<span class="badge badge-danger">위반</span>' : '<span class="badge badge-success">정상</span>';
     const checked = p.checkedAt ? (() => { const d = p.checkedAt.toDate ? p.checkedAt.toDate() : new Date(p.checkedAt); return d.toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}); })() : '-';
-    html += '<tr style="' + (iv ? 'background:#fffafa;' : '') + '"><td style="font-size:13px;color:var(--text-muted);">' + (p.shopName||'-') + '</td><td style="max-width:220px;word-break:break-word;font-weight:500;">' + (p.internalName||'-') + '</td><td>' + (p.basePrice ? Number(p.basePrice).toLocaleString()+'원' : '-') + '</td><td style="' + (iv?'color:var(--danger);font-weight:500;':'') + '">' + (p.currentPrice ? Number(p.currentPrice).toLocaleString()+'원' : '-') + '</td><td>' + badge + '</td><td style="font-size:13px;color:var(--text-muted);">' + checked + '</td><td><a href="' + p.url + '" target="_blank" style="font-size:13px;">스토어 보기</a></td><td>' + (iv ? '<button class="contact-btn" onclick=\'openModal(' + JSON.stringify(p).replace(/'/g,"&#39;") + ')\'>연락하기</button>' : '') + '</td></tr>';
+
+    if (p.id === editingDetailProductId) {
+      html += '<tr style="background:#f8f9ff;">'
+        + '<td style="font-size:13px;color:var(--text-muted);">' + (p.shopName||'-') + '</td>'
+        + '<td><input type="text" id="detail-edit-name-' + p.id + '" value="' + (p.internalName||'').replace(/"/g,'&quot;') + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;" /></td>'
+        + '<td><input type="number" id="detail-edit-price-' + p.id + '" value="' + (p.basePrice||0) + '" style="width:90px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;" /></td>'
+        + '<td>' + (p.currentPrice ? Number(p.currentPrice).toLocaleString()+'원' : '-') + '</td>'
+        + '<td>' + badge + '</td>'
+        + '<td style="font-size:13px;color:var(--text-muted);">' + checked + '</td>'
+        + '<td><input type="text" id="detail-edit-url-' + p.id + '" value="' + (p.url||'').replace(/"/g,'&quot;') + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;" /></td>'
+        + '<td style="white-space:nowrap;"><button onclick="saveDetailProductEdit(\'' + p.branchId + '\',\'' + p.shopId + '\',\'' + p.id + '\')" style="padding:4px 8px;border:1px solid var(--primary);border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-size:12px;margin-right:4px;">저장</button>'
+        + '<button onclick="cancelDetailProductEdit()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:12px;">취소</button></td></tr>';
+    } else {
+      html += '<tr style="' + (iv ? 'background:#fffafa;' : '') + '"><td style="font-size:13px;color:var(--text-muted);">' + (p.shopName||'-') + '</td><td style="max-width:220px;word-break:break-word;font-weight:500;">' + (p.internalName||'-') + '</td><td>' + (p.basePrice ? Number(p.basePrice).toLocaleString()+'원' : '-') + '</td><td style="' + (iv?'color:var(--danger);font-weight:500;':'') + '">' + (p.currentPrice ? Number(p.currentPrice).toLocaleString()+'원' : '-') + '</td><td>' + badge + '</td><td style="font-size:13px;color:var(--text-muted);">' + checked + '</td><td><a href="' + p.url + '" target="_blank" style="font-size:13px;">스토어 보기</a></td>'
+        + '<td style="white-space:nowrap;">'
+        + '<button onclick="startDetailProductEdit(\'' + p.id + '\')" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:12px;margin-right:4px;">수정</button>'
+        + (iv ? '<button class="contact-btn" onclick=\'openModal(' + JSON.stringify(p).replace(/'/g,"&#39;") + ')\'>연락하기</button>' : '')
+        + '</td></tr>';
+    }
   });
   document.getElementById('detail-product-table').innerHTML = html + '</tbody></table>';
+}
+
+function startDetailProductEdit(id) {
+  editingDetailProductId = id;
+  renderDetailView();
+}
+
+function cancelDetailProductEdit() {
+  editingDetailProductId = null;
+  renderDetailView();
+}
+
+async function saveDetailProductEdit(branchId, shopId, productId) {
+  const internalName = document.getElementById('detail-edit-name-' + productId).value.trim();
+  const basePrice = Number(document.getElementById('detail-edit-price-' + productId).value) || 0;
+  const url = document.getElementById('detail-edit-url-' + productId).value.trim();
+  if (!internalName || !url) { alert('내부 제품명과 URL은 비워둘 수 없어요'); return; }
+  try {
+    await db.collection('branches').doc(branchId).collection('shops').doc(shopId).collection('products').doc(productId).update({ internalName, basePrice, url });
+    // 화면에 반영된 캐시(currentDetailBranch.products)도 같이 업데이트
+    const p = currentDetailBranch.products.find(x => x.id === productId);
+    if (p) { p.internalName = internalName; p.basePrice = basePrice; p.url = url; }
+    editingDetailProductId = null;
+    renderDetailView();
+  } catch (e) {
+    alert('수정 실패: ' + e.message);
+  }
 }
 
 // 지사 상세보기에서 현재 데이터 다시 불러오기 (Firestore 최신값 반영)
